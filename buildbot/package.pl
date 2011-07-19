@@ -39,7 +39,7 @@ else
 chdir(Build::PathFormat('../../OUTPUT/package'));
 
 my ($filename);
-$filename = 'vanillaweps-' . $version;
+$filename = 'connect-' . $version;
 if ($^O eq "linux")
 {
     $filename .= '.tar.gz';
