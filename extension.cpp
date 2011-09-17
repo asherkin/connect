@@ -227,7 +227,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	int cbTicket = cbCookie - sizeof(uint64);
 
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, CSteamID(ullSteamID));
-	if (false && result != k_EBeginAuthSessionResultOK)
+	if (result != k_EBeginAuthSessionResultOK)
 	{
 		EndAuthSession(CSteamID(ullSteamID));
 		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectSteam");
