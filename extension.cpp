@@ -78,9 +78,9 @@ class CSteam3Server
 public:
 	void *m_pSteamGameServer;
 	void *m_pSteamGameServerUtils;
-	void *m_pSteamMasterServerUpdater;
 	void *m_pSteamGameServerNetworking;
 	void *m_pSteamGameServerStats;
+	void *m_pSteamHTTP;
 } *g_pSteam3Server;
 
 CBaseServer *g_pBaseServer = NULL;

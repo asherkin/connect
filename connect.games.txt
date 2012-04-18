@@ -47,7 +47,7 @@
 				"library"		"engine"
 				"linux"			"@_ZN11CBaseServer16RejectConnectionERK8netadr_siPc"
 				"mac"			"@_ZN11CBaseServer16RejectConnectionERK8netadr_siPc"
-				"windows"		"\x81\xEC\x2A\x2A\x2A\x2A\x56\x6A\xFF"
+				"windows"		"\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x56\x6A\xFF"
 			}
 			
 			"CBaseClient__SetSteamID"
