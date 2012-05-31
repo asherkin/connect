@@ -25,17 +25,17 @@ print "Attempting to reconfigure...\n";
 
 #update and configure shiz
 if ($^O eq "linux") {
-	$ENV{'SOURCEMOD13'} = '/home/builds/common/sourcemod-1.3';
+	$ENV{'SOURCEMOD14'} = '/home/builds/common/sourcemod-1.4';
 	$ENV{'MMSOURCE18'} = '/home/builds/common/mmsource-1.8';
 	
 	$ENV{'HL2SDKOBVALVE'} = '/home/builds/common/hl2sdk-ob-valve';
 } elsif ($^O eq "darwin") {
-	$ENV{'SOURCEMOD13'} = '/Users/builds/slaves/common/sourcemod-1.3';
+	$ENV{'SOURCEMOD14'} = '/Users/builds/slaves/common/sourcemod-1.4';
 	$ENV{'MMSOURCE18'} = '/Users/builds/slaves/common/mmsource-1.8';
 	
 	$ENV{'HL2SDKOBVALVE'} = '/Users/builds/slaves/common/hl2sdk-ob-valve';
 } else {
-	$ENV{'SOURCEMOD13'} = 'C:/Scripts/common/sourcemod-1.3';
+	$ENV{'SOURCEMOD14'} = 'C:/Scripts/common/sourcemod-1.4';
 	$ENV{'MMSOURCE18'} = 'C:/Scripts/common/mmsource-1.8';
 	
 	#$ENV{'HL2SDKOBVALVE'} = 'H:/hl2sdk-ob-valve';

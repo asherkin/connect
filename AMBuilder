@@ -7,10 +7,10 @@ for i in SM.sdkInfo:
 		continue
 
 	compiler = SM.DefaultHL2Compiler('', i)
-	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD13'], 'public'))
-	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD13'], 'public', 'sourcepawn'))
-	#compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD13'], 'public', 'jit'))
-	#compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD13'], 'public', 'jit', 'x86'))
+	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public'))
+	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public', 'sourcepawn'))
+	#compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public', 'jit'))
+	#compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public', 'jit', 'x86'))
 
 	if compiler.cc.name == 'gcc':
 		compiler['CFLAGS'].append('-Wno-parentheses')

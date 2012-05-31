@@ -22,7 +22,7 @@ class SM:
 			#Detect variables
 			envvars = { 'MMSOURCE18':    'mmsource-1.8',
 						'HL2SDKOBVALVE': 'hl2sdk-ob-valve',
-						'SOURCEMOD13':   'sourcemod-1.3'
+						'SOURCEMOD14':   'sourcemod-1.4'
 			}
 
 			#Must have a path for each envvar (file a bug if you don't like this)
