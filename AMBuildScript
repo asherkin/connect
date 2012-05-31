@@ -12,17 +12,17 @@ class SM:
 
 		#Build SDK info
 		self.sdkInfo = { }
-		self.sdkInfo['ep2v'] =  {'sdk': 'HL2SDKOBVALVE',   'ext': '2.ep2v',  'def': '4',
-		                         'name': 'ORANGEBOXVALVE', 'platform': ['windows', 'linux', 'darwin']}
+		self.sdkInfo['ep2v'] = {'sdk': 'HL2SDKOBVALVE', 'ext': '2.ep2v', 'def': '4',
+								'name': 'ORANGEBOXVALVE', 'platform': ['windows', 'linux', 'darwin']}
 
 		if AMBuild.mode == 'config':
 			#Detect compilers
 			self.compiler.DetectAll(AMBuild)
 
 			#Detect variables
-			envvars = { 'MMSOURCE18':    'mmsource-1.8',
-						'HL2SDKOBVALVE': 'hl2sdk-ob-valve',
-						'SOURCEMOD14':   'sourcemod-1.4'
+			envvars = { 'MMSOURCE18':		'mmsource-1.8',
+						'HL2SDKOBVALVE':	'hl2sdk-ob-valve',
+						'SOURCEMOD14':		'sourcemod-1.4'
 			}
 
 			#Must have a path for each envvar (file a bug if you don't like this)
@@ -47,10 +47,10 @@ class SM:
 			#Set up defines
 			cxx = self.compiler.cxx
 			if isinstance(cxx, Cpp.CompatGCC):
- 				if isinstance(cxx, Cpp.GCC):
- 					self.vendor = 'gcc'
- 				elif isinstance(cxx, Cpp.Clang):
- 					self.vendor = 'clang'
+				if isinstance(cxx, Cpp.GCC):
+					self.vendor = 'gcc'
+				elif isinstance(cxx, Cpp.Clang):
+					self.vendor = 'clang'
 				self.compiler.AddToListVar('CDEFINES', 'stricmp=strcasecmp')
 				self.compiler.AddToListVar('CDEFINES', '_stricmp=strcasecmp')
 				self.compiler.AddToListVar('CDEFINES', '_snprintf=snprintf')
@@ -75,13 +75,13 @@ class SM:
 				self.compiler.AddToListVar('CXXFLAGS', '-fno-threadsafe-statics')
 				self.compiler.AddToListVar('CXXFLAGS', '-Wno-non-virtual-dtor')
 				self.compiler.AddToListVar('CXXFLAGS', '-Wno-overloaded-virtual')
- 				if (self.vendor == 'gcc' and cxx.majorVersion >= 4 and cxx.minorVersion >= 7) or \
- 						(self.vendor == 'clang' and cxx.majorVersion >= 3):
- 					self.compiler.AddToListVar('CXXFLAGS', '-Wno-delete-non-virtual-dtor')
+				if (self.vendor == 'gcc' and cxx.majorVersion >= 4 and cxx.minorVersion >= 7) or \
+						(self.vendor == 'clang' and cxx.majorVersion >= 3):
+					self.compiler.AddToListVar('CXXFLAGS', '-Wno-delete-non-virtual-dtor')
 				self.compiler.AddToListVar('CDEFINES', 'HAVE_STDINT_H')
 				self.compiler.AddToListVar('CDEFINES', 'GNUC')
- 				if self.vendor == 'gcc':
- 					self.compiler.AddToListVar('CFLAGS', '-mfpmath=sse')
+				if self.vendor == 'gcc':
+					self.compiler.AddToListVar('CFLAGS', '-mfpmath=sse')
 			elif isinstance(cxx, Cpp.MSVC):
 				self.vendor = 'msvc'
 				if AMBuild.options.debug == '1':
@@ -136,37 +136,36 @@ class SM:
 
 			#Platform-specifics
 			if AMBuild.target['platform'] == 'linux':
- 				self.compiler.AddToListVar('CDEFINES', '_LINUX')
- 				if self.vendor == 'gcc':
- 					self.compiler.AddToListVar('POSTLINKFLAGS', '-static-libgcc')
- 				if self.vendor == 'clang':
- 					self.compiler.AddToListVar('POSTLINKFLAGS', '-lgcc_eh')
- 			elif AMBuild.target['platform'] == 'darwin':
- 				self.compiler.AddToListVar('POSTLINKFLAGS', '-mmacosx-version-min=10.5')
- 				self.compiler.AddToListVar('POSTLINKFLAGS', ['-arch', 'i386'])
- 				self.compiler.AddToListVar('POSTLINKFLAGS', '-lstdc++')
- 
- 				# For OS X dylib versioning
- 				import re
- 				productFile = open(os.path.join(AMBuild.sourceFolder, 'product.version'), 'r')
- 				productContents = productFile.read()
- 				productFile.close()
- 				m = re.match('(\d+)\.(\d+)\.(\d+).*', productContents)
- 				if m == None:
- 					self.version = '1.0.0'
- 				else:
- 					major, minor, release = m.groups()
- 					self.version = '{0}.{1}.{2}'.format(major, minor, release)
- 				AMBuild.cache.CacheVariable('version', self.version)
- 			elif AMBuild.target['platform'] == 'windows':
- 				self.compiler.AddToListVar('CDEFINES', 'WIN32')
- 				self.compiler.AddToListVar('CDEFINES', '_WINDOWS')
+				self.compiler.AddToListVar('CDEFINES', '_LINUX')
+				if self.vendor == 'gcc':
+					self.compiler.AddToListVar('POSTLINKFLAGS', '-static-libgcc')
+				if self.vendor == 'clang':
+					self.compiler.AddToListVar('POSTLINKFLAGS', '-lgcc_eh')
+			elif AMBuild.target['platform'] == 'darwin':
+				self.compiler.AddToListVar('POSTLINKFLAGS', '-mmacosx-version-min=10.5')
+				self.compiler.AddToListVar('POSTLINKFLAGS', ['-arch', 'i386'])
+				self.compiler.AddToListVar('POSTLINKFLAGS', '-lstdc++')
+
+				# For OS X dylib versioning
+				import re
+				productFile = open(os.path.join(AMBuild.sourceFolder, 'product.version'), 'r')
+				productContents = productFile.read()
+				productFile.close()
+				m = re.match('(\d+)\.(\d+)\.(\d+).*', productContents)
+				if m == None:
+					self.version = '1.0.0'
+				else:
+					major, minor, release = m.groups()
+					self.version = '{0}.{1}.{2}'.format(major, minor, release)
+				AMBuild.cache.CacheVariable('version', self.version)
+			elif AMBuild.target['platform'] == 'windows':
+				self.compiler.AddToListVar('CDEFINES', 'WIN32')
+				self.compiler.AddToListVar('CDEFINES', '_WINDOWS')
 
 			#Finish up
 			self.compiler.AddToListVar('CDEFINES', 'SOURCEMOD_BUILD')
 			self.compiler.AddToListVar('CDEFINES', 'SM_GENERATED_BUILD')
-			self.compiler.AddToListVar('CINCLUDES',
-			                           os.path.join(AMBuild.outputFolder, 'includes'))
+			self.compiler.AddToListVar('CINCLUDES', os.path.join(AMBuild.outputFolder, 'includes'))
 			self.compiler.ToConfig(AMBuild, 'compiler')
 			AMBuild.cache.CacheVariable('vendor', self.vendor)
 			self.targetMap = { }
@@ -177,7 +176,7 @@ class SM:
 
 		if AMBuild.target['platform'] == 'windows':
 			self.compiler.AddToListVar('RCINCLUDES', os.path.join(AMBuild.sourceFolder, 'extension'))
-									   
+
 		self.mmsPath = AMBuild.cache['MMSOURCE18']
 
 	def DefaultCompiler(self):
