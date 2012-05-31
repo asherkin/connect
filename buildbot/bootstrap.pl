@@ -30,8 +30,8 @@ if ($^O eq "linux") {
 	
 	$ENV{'HL2SDKOBVALVE'} = '/home/builds/common/hl2sdk-ob-valve';
 } elsif ($^O eq "darwin") {
-	$ENV{'SOURCEMOD13'} = '/Users/builds/builds/common/sourcemod-1.3';
-	$ENV{'MMSOURCE18'} = '/Users/builds/builds/common/mmsource-1.8';
+	$ENV{'SOURCEMOD13'} = '/Users/builds/slaves/common/sourcemod-1.3';
+	$ENV{'MMSOURCE18'} = '/Users/builds/slaves/common/mmsource-1.8';
 	
 	$ENV{'HL2SDKOBVALVE'} = '/Users/builds/slaves/common/hl2sdk-ob-valve';
 } else {
