@@ -4,7 +4,7 @@
 #define REQUIRE_EXTENSIONS
 #include <connect>
 
-public bool:OnClientPreConnect(const String:name[], String:password[255], const String:ip[], const String:steamID[], String:rejectReason[255])
+public bool:OnClientPreConnectEx(const String:name[], String:password[255], const String:ip[], const String:steamID[], String:rejectReason[255])
 {
 	PrintToServer("----------------\nName: %s\nPassword: %s\nIP: %s\nSteamID: %s\n----------------", name, password, ip, steamID);
 

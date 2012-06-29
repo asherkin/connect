@@ -3,7 +3,7 @@
 #endif
 #define _connect_included
 
-forward bool:OnClientPreConnect(const String:name[], String:password[255], const String:ip[], const String:steamID[], String:rejectReason[255]);
+forward bool:OnClientPreConnectEx(const String:name[], String:password[255], const String:ip[], const String:steamID[], String:rejectReason[255]);
 
 public Extension:__ext_Connect = 
 {

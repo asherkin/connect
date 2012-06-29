@@ -37,7 +37,7 @@
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"Connect"
 #define SMEXT_CONF_DESCRIPTION	""
-#define SMEXT_CONF_VERSION		"1.0.0"
+#define SMEXT_CONF_VERSION		"1.1.0"
 #define SMEXT_CONF_AUTHOR		"Asher \"asherkin\" Baker"
 #define SMEXT_CONF_URL			"http://limetech.org/"
 #define SMEXT_CONF_LOGTAG		"CONNECT"

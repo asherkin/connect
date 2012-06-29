@@ -350,7 +350,7 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	CREATE_DETOUR(CBaseServer__ConnectClient);
 	CREATE_DETOUR(CBaseServer__CheckChallengeType);
 
-	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnect", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
+	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
 	return true;
 }
