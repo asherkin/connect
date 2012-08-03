@@ -39,14 +39,14 @@
 				"library"		"engine"
 				"linux"			"@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
 				"mac"			"@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"windows"		"\x55\x8B\xEC\x83\xEC\x18\x56\x57\x8B\x7D\x14"
+				"windows"		"\x55\x8B\xEC\x83\xEC\x18\x53\x8B\x5D\x14"
 			}
 			
 			"CBaseServer__RejectConnection"
 			{
 				"library"		"engine"
-				"linux"			"@_ZN11CBaseServer16RejectConnectionERK8netadr_siPc"
-				"mac"			"@_ZN11CBaseServer16RejectConnectionERK8netadr_siPc"
+				"linux"			"@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
+				"mac"			"@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
 				"windows"		"\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x56\x6A\xFF"
 			}
 			
