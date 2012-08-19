@@ -39,7 +39,7 @@
 				"library"		"engine"
 				"linux"			"@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
 				"mac"			"@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"windows"		"\x55\x8B\xEC\x83\xEC\x14\x53\x57\x8B\x7D\x14\x8D\x47\xFF\x83\xF8\x02\x8B\xD9"
+				"windows"		"\x55\x8B\xEC\x83\xEC\x18\x53\x8B\x5D\x14"
 			}
 			
 			"CBaseServer__RejectConnection"
