@@ -39,6 +39,13 @@ class CBaseClient;
 
 class CBaseServer;
 
+typedef enum EAuthProtocol
+{
+	k_EAuthProtocolWONCertificate = 1,
+	k_EAuthProtocolHashedCDKey = 2,
+	k_EAuthProtocolSteam = 3,
+} EAuthProtocol;
+
 typedef enum EBeginAuthSessionResult
 {
 	k_EBeginAuthSessionResultOK = 0,				// Ticket is valid for this game and this steamID.
@@ -210,6 +217,12 @@ bool g_bSuppressCheckChallengeType = false;
 char passwordBuffer[255];
 DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
 {
+	if (nAuthProtocol != k_EAuthProtocolSteam)
+	{
+		// This is likely a SourceTV client, we don't want to interfere here.
+		return DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
+	}
+
 	g_pBaseServer = (CBaseServer *)this;
 
 	if (pCookie == NULL || cbCookie < sizeof(uint64))
