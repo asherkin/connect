@@ -5,6 +5,7 @@
 		"#supported"
 		{
 			"engine"	"orangebox_valve"
+			"engine"	"css"
 		}
 		
 		"Offsets"
