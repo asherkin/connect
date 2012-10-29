@@ -26,8 +26,6 @@ Connect g_connect;
 
 SMEXT_LINK(&g_connect);
 
-ICvar *icvar = NULL;
-
 ConVar connectVersion("connect_version", SMEXT_CONF_VERSION, FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 
 IGameConfig *g_pGameConf = NULL;
@@ -210,7 +208,11 @@ void EndAuthSession(CSteamID steamID)
 }
 
 DECL_DETOUR(CBaseServer__ConnectClient);
+DECL_DETOUR(CBaseServer__RejectConnection)
 DECL_DETOUR(CBaseServer__CheckChallengeType);
+
+bool g_bEndAuthSessionOnRejectConnection = false;
+CSteamID g_lastClientSteamID;
 
 bool g_bSuppressCheckChallengeType = false;
 
@@ -239,10 +241,12 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	void *pvTicket = (void *)((intptr_t)pCookie + sizeof(uint64));
 	int cbTicket = cbCookie - sizeof(uint64);
 
-	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, CSteamID(ullSteamID));
+	g_bEndAuthSessionOnRejectConnection = true;
+	g_lastClientSteamID = CSteamID(ullSteamID);
+
+	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
 	if (result != k_EBeginAuthSessionResultOK)
 	{
-		EndAuthSession(CSteamID(ullSteamID));
 		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectSteam");
 		return NULL;
 	}
@@ -252,7 +256,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	g_pConnectForward->PushString(pchName);
 	g_pConnectForward->PushStringEx(passwordBuffer, 255, SM_PARAM_STRING_UTF8 | SM_PARAM_STRING_COPY, SM_PARAM_COPYBACK);
 	g_pConnectForward->PushString(ipString);
-	g_pConnectForward->PushString(CSteamID(ullSteamID).Render());
+	g_pConnectForward->PushString(g_lastClientSteamID.Render());
 	g_pConnectForward->PushStringEx(rejectReason, 255, SM_PARAM_STRING_UTF8 | SM_PARAM_STRING_COPY, SM_PARAM_COPYBACK);
 
 	cell_t retVal = 1;
@@ -260,7 +264,6 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 
 	if (retVal == 0)
 	{
-		EndAuthSession(CSteamID(ullSteamID));
 		RejectConnection(address, iClientChallenge, rejectReason);
 		return NULL;
 	}
@@ -271,12 +274,24 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	return DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
 }
 
+DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, int, iClientChallenge, char *, pchReason)
+{
+	if (g_bEndAuthSessionOnRejectConnection)
+	{
+		EndAuthSession(g_lastClientSteamID);
+		g_bEndAuthSessionOnRejectConnection = false;
+	}
+
+	return DETOUR_MEMBER_CALL(CBaseServer__RejectConnection)(address, iClientChallenge, pchReason);
+}
+
 DETOUR_DECL_MEMBER7(CBaseServer__CheckChallengeType, bool, CBaseClient *, pClient, int, nUserID, netadr_t &, address, int, nAuthProtocol, const char *, pCookie, int, cbCookie, int, iClientChallenge)
 {
 	if (g_bSuppressCheckChallengeType)
 	{
-		uint64 ullSteamID = *(uint64 *)pCookie;
-		SetSteamID(pClient, CSteamID(ullSteamID));
+		g_bEndAuthSessionOnRejectConnection = false;
+
+		SetSteamID(pClient, g_lastClientSteamID);
 
 		g_bSuppressCheckChallengeType = false;
 		return true;
@@ -361,6 +376,7 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), g_pGameConf);
 
 	CREATE_DETOUR(CBaseServer__ConnectClient);
+	CREATE_DETOUR(CBaseServer__RejectConnection);
 	CREATE_DETOUR(CBaseServer__CheckChallengeType);
 
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
@@ -370,14 +386,7 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 
 bool Connect::SDK_OnMetamodLoad(ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
-	GET_V_IFACE_CURRENT(GetEngineFactory, icvar, ICvar, CVAR_INTERFACE_VERSION);
-	if (!icvar)
-	{
-		snprintf(error, maxlen, "Could not find interface %s", CVAR_INTERFACE_VERSION);
-		return false;
-	}
-
-	g_pCVar = icvar;
+	GET_V_IFACE_CURRENT(GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION);
 
 	ConVar_Register(0, this);
 
@@ -394,12 +403,15 @@ void Connect::SDK_OnUnload()
 bool Connect::SDK_OnMetamodUnload(char *error, size_t maxlen)
 {
 	DESTROY_DETOUR(CBaseServer__ConnectClient);
+	DESTROY_DETOUR(CBaseServer__RejectConnection);
 	DESTROY_DETOUR(CBaseServer__CheckChallengeType);
 
 	return true;
 }
 
-bool Connect::RegisterConCommandBase(ConCommandBase *pCommand) {
+bool Connect::RegisterConCommandBase(ConCommandBase *pCommand)
+{
 	META_REGCVAR(pCommand);
+
 	return true;
 }
