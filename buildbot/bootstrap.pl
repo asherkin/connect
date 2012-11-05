@@ -29,16 +29,19 @@ if ($^O eq "linux") {
 	$ENV{'MMSOURCE19'} = '/home/builds/common/mmsource-1.9';
 	
 	$ENV{'HL2SDKOBVALVE'} = '/home/builds/common/hl2sdk-ob-valve';
+	$ENV{'HL2SDKCSS'} = '/home/builds/common/hl2sdk-css';
 } elsif ($^O eq "darwin") {
 	$ENV{'SOURCEMOD14'} = '/Users/builds/slaves/common/sourcemod-1.4';
 	$ENV{'MMSOURCE19'} = '/Users/builds/slaves/common/mmsource-1.9';
 	
 	$ENV{'HL2SDKOBVALVE'} = '/Users/builds/slaves/common/hl2sdk-ob-valve';
+	$ENV{'HL2SDKCSS'} = '/Users/builds/slaves/common/hl2sdk-css';
 } else {
 	$ENV{'SOURCEMOD14'} = 'C:/Scripts/common/sourcemod-1.4';
 	$ENV{'MMSOURCE19'} = 'C:/Scripts/common/mmsource-1.9';
 	
 	#$ENV{'HL2SDKOBVALVE'} = 'H:/hl2sdk-ob-valve';
+	#$ENV{'HL2SDKCSS'} = 'H:/hl2sdk-css';
 }
 
 #configure AMBuild
