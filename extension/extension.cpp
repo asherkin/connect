@@ -227,7 +227,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 
 	g_pBaseServer = (CBaseServer *)this;
 
-	if (pCookie == NULL || cbCookie < sizeof(uint64))
+	if (pCookie == NULL || (size_t)cbCookie < sizeof(uint64))
 	{
 		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectInvalidSteamCertLen");
 		return NULL;
