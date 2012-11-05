@@ -6,11 +6,14 @@ for i in SM.sdkInfo:
 	if AMBuild.target['platform'] not in sdk['platform']:
 		continue
 
-	compiler = SM.DefaultHL2Compiler('', i)
+	compiler = SM.DefaultHL2Compiler('extension', i)
+
+	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.sourceFolder, 'extension'))
+	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.sourceFolder, 'extension', 'sdk'))
+	
 	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public'))
+	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'extensions'))
 	compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public', 'sourcepawn'))
-	#compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public', 'jit'))
-	#compiler['CXXINCLUDES'].append(os.path.join(AMBuild.cache['SOURCEMOD14'], 'public', 'jit', 'x86'))
 
 	if compiler.cc.name == 'gcc':
 		compiler['CFLAGS'].append('-Wno-parentheses')
@@ -22,7 +25,7 @@ for i in SM.sdkInfo:
 	extension = AMBuild.AddJob(name)
 	binary = Cpp.LibraryBuilder(name, AMBuild, extension, compiler)
 	SM.PreSetupHL2Job(extension, binary, i)
-	binary.AddSourceFiles('', [
+	binary.AddSourceFiles('extension', [
 		'extension.cpp',
 		'asm/asm.c',
 		'CDetour/detours.cpp',
@@ -30,5 +33,6 @@ for i in SM.sdkInfo:
 		])
 	SM.PostSetupHL2Job(extension, binary, i)
 	#SM.AutoVersion('extension', binary)
+	#SM.ExtractDebugInfo(extension, binary)
 	binary.SendToJob()
 
