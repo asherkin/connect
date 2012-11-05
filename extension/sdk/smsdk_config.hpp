@@ -34,10 +34,12 @@
  * @brief Contains macros for configuring basic extension information.
  */
 
+ #include "version.h" // SM_FULL_VERSION
+
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"Connect"
-#define SMEXT_CONF_DESCRIPTION	""
-#define SMEXT_CONF_VERSION		"1.1.0"
+#define SMEXT_CONF_DESCRIPTION	"Forward for early connection"
+#define SMEXT_CONF_VERSION		SM_FULL_VERSION
 #define SMEXT_CONF_AUTHOR		"Asher \"asherkin\" Baker"
 #define SMEXT_CONF_URL			"http://limetech.org/"
 #define SMEXT_CONF_LOGTAG		"CONNECT"

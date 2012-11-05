@@ -93,9 +93,9 @@ CBaseServer *g_pBaseServer = NULL;
 typedef CSteam3Server *(*Steam3ServerFunc)();
 
 #ifndef WIN32
-typedef void (*RejectConnectionFunc)(CBaseServer *, const netadr_t &address, int iClientChallenge, char *pchReason);
+typedef void (*RejectConnectionFunc)(CBaseServer *, const netadr_t &address, int iClientChallenge, const char *pchReason);
 #else
-typedef void (__fastcall *RejectConnectionFunc)(CBaseServer *, void *, const netadr_t &address, int iClientChallenge, char *pchReason);
+typedef void (__fastcall *RejectConnectionFunc)(CBaseServer *, void *, const netadr_t &address, int iClientChallenge, const char *pchReason);
 #endif
 
 #ifndef WIN32
@@ -116,7 +116,7 @@ CSteam3Server *Steam3Server()
 	return g_pSteam3ServerFunc();
 }
 
-void RejectConnection(const netadr_t &address, int iClientChallenge, char *pchReason)
+void RejectConnection(const netadr_t &address, int iClientChallenge, const char *pchReason)
 {
 	if (!g_pRejectConnectionFunc || !g_pBaseServer)
 		return;
@@ -274,7 +274,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	return DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
 }
 
-DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, int, iClientChallenge, char *, pchReason)
+DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, int, iClientChallenge, const char *, pchReason)
 {
 	if (g_bEndAuthSessionOnRejectConnection)
 	{

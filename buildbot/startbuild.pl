@@ -10,6 +10,14 @@ require 'helpers.pm';
 
 chdir('../../OUTPUT');
 
+$ENV{'BREAKPAD_SYMBOL_SERVER'} = 'http://crash.limetech.org/submit-symbols';
+
+if ($^O eq "linux") {
+	$ENV{'PATH'} .= ':/home/builds/common/';
+} elsif ($^O eq "darwin") {
+	$ENV{'PATH'} .= ':/Users/builds/slaves/common/';
+}
+
 if ($^O eq "linux" || $^O eq "darwin") {
 	system("python3 build.py 2>&1");
 } else {
