@@ -71,7 +71,7 @@ public:
 	unsigned short	port;
 } netadr_t;
 
-char *CSteamID::Render() const
+const char *CSteamID::Render() const
 {
 	static char szSteamID[64];
 	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_0:%u:%u", (m_unAccountID % 2) ? 1 : 0, (int32)m_unAccountID/2);
