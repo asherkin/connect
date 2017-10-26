@@ -34,7 +34,7 @@ class SM:
 		self.possibleSdks['ep2'] =   {'sdk': 'HL2SDKOB',            'ext': '2.ep2',   'def': '3',
 		                             'name': 'ORANGEBOX',      'platform': []}
 		self.possibleSdks['css'] =   {'sdk': 'HL2SDKCSS',           'ext': '2.css',  'def': '6',
-		                             'name': 'CSS',            'platform': ['windows', 'linux', 'darwin']}
+		                             'name': 'CSS',            'platform': []}
 		self.possibleSdks['ep2v'] =  {'sdk': 'HL2SDKOBVALVE',       'ext': '2.ep2v',  'def': '7',
 		                             'name': 'ORANGEBOXVALVE', 'platform': ['windows', 'linux', 'darwin']}
 		self.possibleSdks['l4d'] =   {'sdk': 'HL2SDKL4D',           'ext': '2.l4d',   'def': '8',
@@ -60,7 +60,7 @@ class SM:
 
 			#Detect variables
 			envvars = { 'MMSOURCE19':    'mmsource-1.9',
-			            'SOURCEMOD14':   'sourcemod-1.4',
+			            'SOURCEMOD14':   'sourcemod-1.7',
 			            'HL2SDKCSS':     'hl2sdk-css',
 			            'HL2SDKOBVALVE': 'hl2sdk-ob-valve',
 			            'HL2SDKL4D':     'hl2sdk-l4d',
@@ -203,6 +203,7 @@ class SM:
 
 			#Platform-specifics
 			if AMBuild.target['platform'] == 'linux':
+				self.compiler.AddToListVar('CDEFINES', 'POSIX')
 				self.compiler.AddToListVar('CDEFINES', '_LINUX')
 				if self.vendor == 'gcc':
 					self.compiler.AddToListVar('POSTLINKFLAGS', '-static-libgcc')
