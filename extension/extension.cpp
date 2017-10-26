@@ -81,11 +81,15 @@ char *CSteamID::Render() const
 class CSteam3Server
 {
 public:
+	void *m_pSteamClient;
 	void *m_pSteamGameServer;
 	void *m_pSteamGameServerUtils;
 	void *m_pSteamGameServerNetworking;
 	void *m_pSteamGameServerStats;
 	void *m_pSteamHTTP;
+	void *m_pSteamInventory;
+	void *m_pSteamUGC;
+	void *m_pSteamApps;
 } *g_pSteam3Server;
 
 CBaseServer *g_pBaseServer = NULL;
