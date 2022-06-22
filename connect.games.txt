@@ -18,7 +18,7 @@
 				"mac"           "29"
 				"windows"       "29"
 			}
-
+			
 			"ISteamGameServer__EndAuthSession"
 			{
 				"linux"         "30"
@@ -29,20 +29,12 @@
 
 		"Signatures"
 		{
-			"CBaseServer__ConnectClient"
-			{
-				"library"       "engine"
-				"linux"         "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
-				"mac"           "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
-				"windows"       "\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x56\x68\x2A\x2A\x2A\x2A\x8B\xF1"
-			}
-
 			"CBaseServer__CheckMasterServerRequestRestart"
 			{
 				"library"       "engine"
 				"windows"       "\xE8\x2A\x2A\x2A\x2A\x83\x78\x04\x00\x74\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x48\x04\x8B\x01\x8B\x40\x2C\xFF\xD0\x84\xC0\x74\x2A\x56"
 			}
-
+			
 			"Steam3Server"
 			{
 				"library"       "engine"
@@ -63,6 +55,14 @@
 		
 		"Signatures"
 		{
+			"CBaseServer__ConnectClient"
+			{
+				"library"       "engine"
+				"linux"         "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
+				"mac"           "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
+				"windows"       "\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x56\x68\x2A\x2A\x2A\x2A\x8B\xF1"
+			}
+			
 			"CBaseServer__RejectConnection"
 			{
 				"library"       "engine"
@@ -70,7 +70,7 @@
 				"mac"           "@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
 				"windows"       "\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x56\x6A\xFF"
 			}
-
+			
 			"CBaseClient__SetSteamID"
 			{
 				"library"       "engine"
@@ -93,6 +93,14 @@
 	{
 		"Signatures"
 		{
+			"CBaseServer__ConnectClient"
+			{
+				"library"       "engine"
+				"linux"         "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
+				"mac"           "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
+				"windows"       "\x55\x8B\xEC\x81\xEC\x24\x05\x00\x00"
+			}
+			
 			"CBaseServer__RejectConnection"
 			{
 				"library"       "engine"
@@ -100,7 +108,7 @@
 				"mac"           "@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
 				"windows"       "\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x57"
 			}
-
+			
 			"CBaseClient__SetSteamID"
 			{
 				"library"       "engine"
