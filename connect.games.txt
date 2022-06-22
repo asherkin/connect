@@ -7,7 +7,7 @@
 			"engine"    "dods"
 			"engine"    "css"
 			"engine"    "hl2dm"
-			"engine"    "tf"
+			"engine"    "tf2"
 		}
 
 		"Offsets"
@@ -89,7 +89,7 @@
 		}
 	}
 	
-	"tf"
+	"tf2"
 	{
 		"Signatures"
 		{
