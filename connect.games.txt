@@ -7,9 +7,9 @@
 			"engine"    "dods"
 			"engine"    "css"
 			"engine"    "hl2dm"
-			"engine"    "tf"
+			"engine"    "tf2"
 		}
-
+		
 		"Offsets"
 		{
 			"ISteamGameServer__BeginAuthSession"
@@ -26,7 +26,7 @@
 				"windows"       "30"
 			}
 		}
-
+		
 		"Signatures"
 		{
 			"CBaseServer__CheckMasterServerRequestRestart"
