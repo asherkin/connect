@@ -1,13 +1,14 @@
 /**
+ * vim: set ts=4 :
  * =============================================================================
- * connect Extension
- * Copyright (C) 2011 Asher Baker (asherkin).  All rights reserved.
+ * SourceMod Sample Extension
+ * Copyright (C) 2004-2008 AlliedModders LLC.  All rights reserved.
  * =============================================================================
  *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License, version 3.0, as published by the
  * Free Software Foundation.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
@@ -24,29 +25,29 @@
  * this exception to all derivative works.  AlliedModders LLC defines further
  * exceptions, found in LICENSE.txt (as of this writing, version JULY-31-2007),
  * or <http://www.sourcemod.net/license.php>.
+ *
+ * Version: $Id$
  */
 
 #ifndef _INCLUDE_SOURCEMOD_EXTENSION_CONFIG_H_
 #define _INCLUDE_SOURCEMOD_EXTENSION_CONFIG_H_
 
 /**
- * @file smsdk_config.hpp
+ * @file smsdk_config.h
  * @brief Contains macros for configuring basic extension information.
  */
-
- #include "version.h" // SM_FULL_VERSION
 
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"Connect"
 #define SMEXT_CONF_DESCRIPTION	"Forward for early connection"
-#define SMEXT_CONF_VERSION		SM_FULL_VERSION
-#define SMEXT_CONF_AUTHOR		"Asher \"asherkin\" Baker"
-#define SMEXT_CONF_URL			"http://limetech.org/"
+#define SMEXT_CONF_VERSION		"2.6"
+#define SMEXT_CONF_AUTHOR		"Asher \"asherkin\" Baker + BotoX"
+#define SMEXT_CONF_URL			"https://github.com/CSSZombieEscape/sm-ext-connect"
 #define SMEXT_CONF_LOGTAG		"CONNECT"
 #define SMEXT_CONF_LICENSE		"GPL"
 #define SMEXT_CONF_DATESTRING	__DATE__
 
-/** 
+/**
  * @brief Exposes plugin's main interface.
  */
 #define SMEXT_LINK(name) SDKExtension *g_pExtensionIface = name;
@@ -55,12 +56,12 @@
  * @brief Sets whether or not this plugin required Metamod.
  * NOTE: Uncomment to enable, comment to disable.
  */
-#define SMEXT_CONF_METAMOD		
+#define SMEXT_CONF_METAMOD
 
 /** Enable interfaces you want to use here by uncommenting lines */
 #define SMEXT_ENABLE_FORWARDSYS
 //#define SMEXT_ENABLE_HANDLESYS
-//#define SMEXT_ENABLE_PLAYERHELPERS
+#define SMEXT_ENABLE_PLAYERHELPERS
 //#define SMEXT_ENABLE_DBMANAGER
 #define SMEXT_ENABLE_GAMECONF
 //#define SMEXT_ENABLE_MEMUTILS
@@ -75,6 +76,6 @@
 //#define SMEXT_ENABLE_TEXTPARSERS
 //#define SMEXT_ENABLE_USERMSGS
 //#define SMEXT_ENABLE_TRANSLATOR
-//#define SMEXT_ENABLE_NINVOKE
+//#define SMEXT_ENABLE_ROOTCONSOLEMENU
 
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_CONFIG_H_
