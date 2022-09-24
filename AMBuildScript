@@ -30,11 +30,6 @@ class SDK(object):
 WinOnly = ['windows']
 WinLinux = ['windows', 'linux']
 WinLinuxMac = ['windows', 'linux', 'mac']
-CSGO = {
-  'windows': ['x86'],
-  'linux': ['x86', 'x86_64'],
-  'mac': ['x86_64']
-}
 
 PossibleSDKs = {
   'sdk2013': SDK('HL2SDK2013', '2.sdk2013', '9', 'SDK2013', WinLinuxMac, 'sdk2013'),

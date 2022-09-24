@@ -40,6 +40,21 @@
 #include "smsdk_ext.h"
 #include <igameevents.h>
 
+#define DETOUR_MEMBER_MCALL_CALLBACK(name, classptr) \
+	((name##Class *)classptr->*(&name##Class::name))
+#define DETOUR_MEMBER_MCALL_ORIGINAL(name, classptr) \
+	((name##Class *)classptr->*(name##Class::name##_Actual))
+
+#define DETOUR_DECL_MEMBER9(name, ret, p1type, p1name, p2type, p2name, p3type, p3name, p4type, p4name, p5type, p5name, p6type, p6name, p7type, p7name, p8type, p8name, p9type, p9name) \
+class name##Class \
+{ \
+public: \
+        ret name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name); \
+        static ret (name##Class::* name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type); \
+}; \
+ret (name##Class::* name##Class::name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type) = NULL; \
+ret name##Class::name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name)
+
 /**
  * @brief Sample implementation of the SDK Extension.
  * Note: Uncomment one of the pre-defined virtual functions in order to use it.
