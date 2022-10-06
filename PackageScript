@@ -51,3 +51,7 @@ CopyFiles('addons/sourcemod/gamedata', 'addons/sourcemod/gamedata',
   [ 'connect.games.txt' ]
 )
 
+# Autoload
+CopyFiles('addons/sourcemod/extensions', 'addons/sourcemod/extensions',
+  [ 'connect.autoload' ]
+)
