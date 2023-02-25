@@ -12,18 +12,9 @@ SourceFolder = os.path.abspath(os.path.normpath(argv[0]))
 OutputFolder = os.path.normpath(argv[1])
 
 def run_and_return(argv):
-  # Python 2.6 doesn't have check_output.
-  if hasattr(subprocess, 'check_output'):
-    text = subprocess.check_output(argv)
-    if str != bytes:
-      text = str(text, 'utf-8')
-  else:
-    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, ignored = p.communicate()
-    rval = p.poll()
-    if rval:
-      raise subprocess.CalledProcessError(rval, argv)
-    text = output.decode('utf8')
+  text = subprocess.check_output(argv)
+  if str != bytes:
+    text = str(text, 'utf-8')
   return text.strip()
 
 def GetGHVersion():
@@ -42,10 +33,7 @@ def GetGitVersion():
 
 rev = None
 cset = None 
-if os.path.exists(os.path.join(SourceFolder, '.hg')): # Mercurial repository
-  rev, cset = GetGHVersion()
-else: # Assume its a git repository
-  rev, cset =  GetGitVersion()
+rev, cset =  GetGitVersion()
 
 productFile = open(os.path.join(SourceFolder, 'product.version'), 'r')
 productContents = productFile.read()
@@ -67,3 +55,7 @@ incFile.write("""
 #endif /* _AUTO_VERSION_INFORMATION_H_ */
 """.format(tag, rev, cset, major, minor, release, major, minor, release))
 incFile.close()
+
+filename_versioning = open(os.path.join(OutputFolder, 'filename_versioning.txt'), 'w')
+filename_versioning.write("{0}.{1}.{2}-git{3}-{4}".format(major, minor, release, rev, cset))
+filename_versioning.close()

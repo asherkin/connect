@@ -34,26 +34,25 @@ WinLinuxMac = ['windows', 'linux', 'mac']
 
 PossibleSDKs = {
 #  'episode1':  SDK('HL2SDK', '1.ep1', '1', 'EPISODEONE', WinLinux, 'episode1'),
-#  'ep2':  SDK('HL2SDKOB', '2.ep2', '3', 'ORANGEBOX', WinLinux, 'orangebox'),
-#  'css':  SDK('HL2SDKCSS', '2.css', '6', 'CSS', WinLinuxMac, 'css'),
-#  'hl2dm':  SDK('HL2SDKHL2DM', '2.hl2dm', '7', 'HL2DM', WinLinuxMac, 'hl2dm'),
-#  'dods': SDK('HL2SDKDODS', '2.dods', '8', 'DODS', WinLinuxMac, 'dods'),
-#  'sdk2013': SDK('HL2SDK2013', '2.sdk2013', '9', 'SDK2013', WinLinuxMac, 'sdk2013'),
-  'tf2':  SDK('HL2SDKTF2', '2.tf2', '11', 'TF2', WinLinuxMac, 'tf2')
-#  'l4d':  SDK('HL2SDKL4D', '2.l4d', '12', 'LEFT4DEAD', WinLinuxMac, 'l4d'),
-#  'nucleardawn': SDK('HL2SDKND', '2.nd', '13', 'NUCLEARDAWN', WinLinuxMac, 'nucleardawn'),
-#  'l4d2': SDK('HL2SDKL4D2', '2.l4d2', '15', 'LEFT4DEAD2', WinLinuxMac, 'l4d2'),
 #  'darkm':  SDK('HL2SDK-DARKM', '2.darkm', '2', 'DARKMESSIAH', WinOnly, 'darkm'),
-#  'swarm':  SDK('HL2SDK-SWARM', '2.swarm', '16', 'ALIENSWARM', WinOnly, 'swarm'),
+#  'orangebox':  SDK('HL2SDKOB', '2.ep2', '3', 'ORANGEBOX', WinLinux, 'orangebox'),
 #  'bgt':  SDK('HL2SDK-BGT', '2.bgt', '4', 'BLOODYGOODTIME', WinOnly, 'bgt'),
 #  'eye':  SDK('HL2SDK-EYE', '2.eye', '5', 'EYE', WinOnly, 'eye'),
-#  'csgo': SDK('HL2SDKCSGO', '2.csgo', '20', 'CSGO', WinLinuxMac, 'csgo'),
-#  'dota': SDK('HL2SDKDOTA', '2.dota', '21', 'DOTA', [], 'dota'),
-#  'portal2':  SDK('HL2SDKPORTAL2', '2.portal2', '17', 'PORTAL2', [], 'portal2'),
-#  'blade':  SDK('HL2SDKBLADE', '2.blade', '18', 'BLADE', WinLinux, 'blade'),
+  'css':  SDK('HL2SDKCSS', '2.css', '6', 'CSS', WinLinuxMac, 'css'),
+  'hl2dm':  SDK('HL2SDKHL2DM', '2.hl2dm', '7', 'HL2DM', WinLinuxMac, 'hl2dm'),
+  'dods': SDK('HL2SDKDODS', '2.dods', '8', 'DODS', WinLinuxMac, 'dods'),
+  'sdk2013': SDK('HL2SDK2013', '2.sdk2013', '9', 'SDK2013', WinLinuxMac, 'sdk2013'),
+#  'bms':  SDK('HL2SDKBMS', '2.bms', '11', 'BMS', WinLinux, 'bms'),
+  'tf2':  SDK('HL2SDKTF2', '2.tf2', '12', 'TF2', WinLinuxMac, 'tf2'),
+  'l4d':  SDK('HL2SDKL4D', '2.l4d', '13', 'LEFT4DEAD', WinLinuxMac, 'l4d'),
+#  'nucleardawn': SDK('HL2SDKND', '2.nd', '14', 'NUCLEARDAWN', WinLinuxMac, 'nucleardawn'),
+#  'contagion':  SDK('HL2SDKCONTAGION', '2.contagion', '15', 'CONTAGION', WinOnly, 'contagion'),
+  'l4d2': SDK('HL2SDKL4D2', '2.l4d2', '16', 'LEFT4DEAD2', WinLinuxMac, 'l4d2'),
+#  'swarm':  SDK('HL2SDK-SWARM', '2.swarm', '17', 'ALIENSWARM', WinOnly, 'swarm'),
+#  'portal2':  SDK('HL2SDKPORTAL2', '2.portal2', '18', 'PORTAL2', [], 'portal2'),
 #  'insurgency':  SDK('HL2SDKINSURGENCY', '2.insurgency', '19', 'INSURGENCY', WinLinuxMac, 'insurgency'),
-#  'contagion':  SDK('HL2SDKCONTAGION', '2.contagion', '14', 'CONTAGION', WinOnly, 'contagion'),
-#  'bms':  SDK('HL2SDKBMS', '2.bms', '10', 'BMS', WinLinux, 'bms'),
+#  'blade':  SDK('HL2SDKBLADE', '2.blade', '21', 'BLADE', WinLinux, 'blade'),
+  'csgo': SDK('HL2SDKCSGO', '2.csgo', '23', 'CSGO', WinLinuxMac, 'csgo'),
 }
 
 def ResolveEnvPath(env, folder):
@@ -160,7 +159,7 @@ class ExtensionConfig(object):
       self.productVersion = '{0}.{1}.{2}'.format(major, minor, release)
 
   def detectSDKs(self):
-    sdk_list = builder.options.sdks.split(',')
+    sdk_list = builder.options.sdks.split(' ')
     use_all = sdk_list[0] == 'all'
     use_present = sdk_list[0] == 'present'
 
@@ -168,7 +167,7 @@ class ExtensionConfig(object):
       sdk = PossibleSDKs[sdk_name]
       if sdk.shouldBuild(self.all_targets):
         if builder.options.hl2sdk_root:
-          sdk_path = os.path.join(builder.options.hl2sdk_root, sdk.folder)
+          sdk_path = os.path.join(os.path.realpath(builder.options.hl2sdk_root), sdk.folder)
         else:
           sdk_path = ResolveEnvPath(sdk.envvar, sdk.folder)
         if sdk_path is None or not os.path.isdir(sdk_path):
@@ -183,7 +182,7 @@ class ExtensionConfig(object):
       raise Exception('At least one SDK must be available.')
 
     if builder.options.sm_path:
-      self.sm_root = builder.options.sm_path
+      self.sm_root = os.path.realpath(builder.options.sm_path)
     else:
       self.sm_root = ResolveEnvPath('SOURCEMOD', 'sourcemod')
       if not self.sm_root:
@@ -360,7 +359,7 @@ class ExtensionConfig(object):
     ]
 
     if builder.options.opt == '1':
-      cxx.cflags += ['/Ox', '/Zo', '-O3']
+      cxx.cflags += ['/Ox', '/Zo']
       cxx.linkflags += ['/OPT:ICF', '/OPT:REF']
 
     if builder.options.debug == '1':
