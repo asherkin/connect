@@ -50,9 +50,25 @@ SMEXT_LINK(&g_Connect);
 
 ConVar *g_ConnectVersion = CreateConVar("connect_version", SMEXT_CONF_VERSION, FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 ConVar *g_SvNoSteam = CreateConVar("sv_nosteam", "1", FCVAR_NOTIFY, "Disable steam validation and force steam authentication.");
-ConVar *g_SvForceSteam = CreateConVar("sv_forcesteam", "0", FCVAR_NOTIFY, "Force steam authentication.");
+ConVar *g_SvForceSteam = CreateConVar("sv_forcesteam", "0", FCVAR_NOTIFY, "Bypass auth ticket validations. (Debug only)");
 ConVar *g_SvLogging = CreateConVar("sv_connect_logging", "0", FCVAR_NOTIFY, "Log connection checks");
-ConVar *g_SvAuthSessionResponseLegal = CreateConVar("sv_auth_session_response_legal", "0,1,2,3,4,5,7,9", FCVAR_NOTIFY, "List of EAuthSessionResponse that are considered as Steam legal (Defined in steam_api_interop.cs).");
+
+// https://github.com/adocwang/steam_ticket_decrypter/blob/fc3ecf2a69193a7a29f5e5bffdbcda5b0b61e347/steam/steam_api_interop.cs#L9655C13-L9655C33
+// https://partner.steamgames.com/doc/api/steam_api
+// public enum EAuthSessionResponse
+// {
+// 	k_EAuthSessionResponseOK = 0, // Steam has verified the user is online, the ticket is valid and ticket has not been reused.
+// 	k_EAuthSessionResponseUserNotConnectedToSteam = 1, // The user in question is not connected to steam.
+// 	k_EAuthSessionResponseNoLicenseOrExpired = 2, // The user doesn't have a license for this App ID or the ticket has expired.
+// 	k_EAuthSessionResponseVACBanned = 3, // The user is VAC banned for this game.
+// 	k_EAuthSessionResponseLoggedInElseWhere = 4, // The user account has logged in elsewhere and the session containing the game instance has been disconnected.
+// 	k_EAuthSessionResponseVACCheckTimedOut = 5, // VAC has been unable to perform anti-cheat checks on this user.
+// 	k_EAuthSessionResponseAuthTicketCanceled = 6, // The ticket has been canceled by the issuer.
+// 	k_EAuthSessionResponseAuthTicketInvalidAlreadyUsed = 7, // This ticket has already been used, it is not valid.
+// 	k_EAuthSessionResponseAuthTicketInvalid = 8, // This ticket is not from a user instance currently connected to steam.
+// 	k_EAuthSessionResponsePublisherIssuedBan = 9, // The user is banned for this game. The ban came via the web api and not VAC.
+// }
+ConVar *g_SvAuthSessionResponseLegal = CreateConVar("sv_auth_session_response_legal", "0,3,4,5,9", FCVAR_NOTIFY, "List of EAuthSessionResponse that are considered as Steam legal (Defined in steam_api_interop.cs).");
 
 
 IGameConfig *g_pGameConf = NULL;
@@ -268,15 +284,15 @@ DETOUR_DECL_MEMBER1(CSteam3Server__OnValidateAuthTicketResponse, int, ValidateAu
 
 	EAuthSessionResponse eAuthSessionResponse = pResponse->m_eAuthSessionResponse;
 	bool SteamLegal = IsAuthSessionResponseSteamLegal(pResponse->m_eAuthSessionResponse);
-	bool force = g_SvNoSteam->GetInt() || g_SvForceSteam->GetInt() || !BLoggedOn();
+	bool force = g_SvForceSteam->GetInt();
 
-	if(!SteamLegal && force)
+	if (!SteamLegal && force)
 		pResponse->m_eAuthSessionResponse = k_EAuthSessionResponseOK;
 
 	if (g_SvLogging->GetInt())
 		g_pSM->LogMessage(myself, "%s SteamLegal: %d (%d)", aSteamID, SteamLegal, pResponse->m_eAuthSessionResponse);
 
-	if(StorageValid && !Storage.GotValidateAuthTicketResponse)
+	if (StorageValid && !Storage.GotValidateAuthTicketResponse)
 	{
 		Storage.GotValidateAuthTicketResponse = true;
 		Storage.ValidateAuthTicketResponse = *pResponse;
@@ -344,7 +360,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 			AsyncWaiting = true;
 	}
 
-	bool NoSteam = g_SvNoSteam->GetInt() || !BLoggedOn();
+	bool NoSteam = g_SvNoSteam->GetInt();
 	bool SteamAuthFailed = false;
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
 	if(result != k_EBeginAuthSessionResultOK)
@@ -658,7 +674,7 @@ cell_t ClientPreConnectEx(IPluginContext *pContext, const cell_t *params)
 	if(!pClient)
 		return 1;
 
-	bool force = g_SvNoSteam->GetInt() || g_SvForceSteam->GetInt() || !BLoggedOn();
+	bool force = g_SvNoSteam->GetInt();
 
 	if(Storage.SteamAuthFailed && force && !Storage.GotValidateAuthTicketResponse)
 	{
