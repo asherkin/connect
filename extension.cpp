@@ -284,7 +284,7 @@ DETOUR_DECL_MEMBER1(CSteam3Server__OnValidateAuthTicketResponse, int, ValidateAu
 	EAuthSessionResponse eAuthSessionResponse = pResponse->m_eAuthSessionResponse;
 	bool SteamLegal = IsAuthSessionResponseSteamLegal(pResponse->m_eAuthSessionResponse);
 
-	if (!SteamLegal && g_SvNoSteam->GetInt())
+	if (SteamLegal || (!SteamLegal && g_SvNoSteam->GetInt()))
 		pResponse->m_eAuthSessionResponse = k_EAuthSessionResponseOK;
 
 	if (g_SvLogging->GetInt())
