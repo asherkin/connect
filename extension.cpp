@@ -50,7 +50,6 @@ SMEXT_LINK(&g_Connect);
 
 ConVar *g_ConnectVersion = CreateConVar("connect_version", SMEXT_CONF_VERSION, FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 ConVar *g_SvNoSteam = CreateConVar("sv_nosteam", "1", FCVAR_NOTIFY, "Disable steam validation and force steam authentication.");
-ConVar *g_SvForceSteam = CreateConVar("sv_forcesteam", "0", FCVAR_NOTIFY, "Bypass auth ticket validations. (Debug only)");
 ConVar *g_SvLogging = CreateConVar("sv_connect_logging", "0", FCVAR_NOTIFY, "Log connection checks");
 
 // https://github.com/adocwang/steam_ticket_decrypter/blob/fc3ecf2a69193a7a29f5e5bffdbcda5b0b61e347/steam/steam_api_interop.cs#L9655C13-L9655C33
@@ -169,7 +168,7 @@ void SetSteamID(CBaseClient *pClient, const CSteamID &steamID)
 EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
 {
 	if(!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer)
-		return k_EBeginAuthSessionResultOK;
+		return k_EBeginAuthSessionResultInvalidTicket;
 
 	return g_pSteam3Server->m_pSteamGameServer->BeginAuthSession(pAuthTicket, cbAuthTicket, steamID);
 }
@@ -284,9 +283,8 @@ DETOUR_DECL_MEMBER1(CSteam3Server__OnValidateAuthTicketResponse, int, ValidateAu
 
 	EAuthSessionResponse eAuthSessionResponse = pResponse->m_eAuthSessionResponse;
 	bool SteamLegal = IsAuthSessionResponseSteamLegal(pResponse->m_eAuthSessionResponse);
-	bool force = g_SvForceSteam->GetInt();
 
-	if (!SteamLegal && force)
+	if (!SteamLegal && g_SvNoSteam->GetInt())
 		pResponse->m_eAuthSessionResponse = k_EAuthSessionResponseOK;
 
 	if (g_SvLogging->GetInt())
@@ -360,12 +358,11 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 			AsyncWaiting = true;
 	}
 
-	bool NoSteam = g_SvNoSteam->GetInt();
 	bool SteamAuthFailed = false;
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
 	if(result != k_EBeginAuthSessionResultOK)
 	{
-		if(!NoSteam)
+		if(!g_SvNoSteam->GetInt())
 		{
 			RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectSteam");
 			return NULL;
@@ -408,10 +405,10 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	}
 
 	char rejectReason[255];
-	cell_t retVal = 1;
+	cell_t retVal = k_OnClientPreConnectEx_Accept;
 
 	if(AsyncWaiting)
-		retVal = -1; // Fake async return code when waiting for async call
+		retVal = k_OnClientPreConnectEx_Async; // Fake async return code when waiting for async call
 	else
 	{
 		g_pConnectForward->PushString(pchName);
@@ -674,9 +671,7 @@ cell_t ClientPreConnectEx(IPluginContext *pContext, const cell_t *params)
 	if(!pClient)
 		return 1;
 
-	bool force = g_SvNoSteam->GetInt();
-
-	if(Storage.SteamAuthFailed && force && !Storage.GotValidateAuthTicketResponse)
+	if(Storage.SteamAuthFailed && g_SvNoSteam->GetInt() && !Storage.GotValidateAuthTicketResponse)
 	{
 		if (g_SvLogging->GetInt())
 			g_pSM->LogMessage(myself, "%s Force ValidateAuthTicketResponse", pSteamID);
