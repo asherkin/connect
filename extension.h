@@ -137,5 +137,12 @@ public:  // IConCommandBaseAccessor
 	virtual bool RegisterConCommandBase(ConCommandBase *pVar);
 };
 
+class ConnectEvents : public IGameEventListener2
+{
+public:
+	virtual void FireGameEvent( IGameEvent *event );
+};
+
+extern ConnectEvents g_ConnectEvents;
 
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_PROPER_H_

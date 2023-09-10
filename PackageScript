@@ -48,7 +48,7 @@ CopyFiles('addons/sourcemod/scripting/include', 'addons/sourcemod/scripting/incl
 
 # Gamedata (custom so updater doesn't replace it)
 CopyFiles('addons/sourcemod/gamedata', 'addons/sourcemod/gamedata',
-  [ 'connect.games.txt' ]
+  [ 'connect2.games.txt' ]
 )
 
 # Autoload
