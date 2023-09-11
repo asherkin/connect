@@ -200,13 +200,51 @@ bool isValidSteamID3(const std::string& input)
     }
 
     // Check if the string contains digits between "[U:X:" and "]"
-    for (char c : input.substr(5, input.size() - 7)) {
-        if (!std::isdigit(c)) {
+    for (int i = 5; i < input.size() - 1; i++) {
+        if (!std::isdigit(input[i])) {
             return false;
         }
     }
 
     return true;
+}
+
+std::string divideByTwo(const std::string& number) {
+    std::string result;
+    int carry = 0;
+
+    for (char digit : number) {
+        int currentDigit = digit - '0';
+        int quotient = (currentDigit + carry * 10) / 2;
+        carry = (currentDigit + carry * 10) % 2;
+        result.push_back(quotient + '0');
+    }
+
+    // Remove leading zeros from the result
+    size_t firstNonZero = result.find_first_not_of('0');
+    if (firstNonZero != std::string::npos) {
+        return result.substr(firstNonZero);
+    } else {
+        return "0";
+    }
+}
+
+bool isEven(const std::string& str) {
+    // Check if the string is empty or has a single character (not a valid number)
+    if (str.empty() || (str.size() == 1 && !isdigit(str[0]))) {
+        return false;
+    }
+
+    // Get the last character
+    char lastChar = str.back();
+
+    // Check if the last character is a digit and it's an even number
+    if (isdigit(lastChar)) {
+        int lastDigit = lastChar - '0'; // Convert char to int
+        return (lastDigit % 2 == 0);
+    }
+
+    return false; // Not a valid number
 }
 
 std::string SteamID3ToSteamID(const std::string& usteamid)
@@ -215,7 +253,6 @@ std::string SteamID3ToSteamID(const std::string& usteamid)
 
     if (!isValidSteamID3(steamid))
     {
-        std::cout << "Not valid" << std::endl;
         return "";
     }
 
@@ -238,16 +275,14 @@ std::string SteamID3ToSteamID(const std::string& usteamid)
     std::vector<std::string> steamid_components;
     steamid_components.push_back("STEAM_0:");
 
-    int z = std::stoi(usteamid_split[2]);
-
-    if (z % 2 == 0) {
+    if (isEven(usteamid_split[2])) {
         steamid_components.push_back("0:");
     } else {
         steamid_components.push_back("1:");
     }
 
-    int steamacct = z / 2;
-    steamid_components.push_back(std::to_string(steamacct));
+    std::string steamacct = divideByTwo(usteamid_split[2]);
+    steamid_components.push_back(steamacct);
 
     // Concatenate the components to form the SteamID
     steamid = "";
