@@ -39,8 +39,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
-#include <vector> // Add this line to include the vector header
-
+#include <map>
 
 /**
  * @file extension.cpp
@@ -193,9 +192,32 @@ bool BLoggedOn()
 	return g_pSteam3Server->m_pSteamGameServer->BLoggedOn();
 }
 
+bool isValidSteamID3(const std::string& input)
+{
+    // Check if the string starts with "[U:X:" and ends with "]"
+    if (input.size() < 7 || input.substr(0, 3) != "[U:" || input.back() != ']' || !std::isdigit(input.substr(3, 1)[0]) || input.substr(4, 1) != ":") {
+        return false;
+    }
+
+    // Check if the string contains digits between "[U:X:" and "]"
+    for (char c : input.substr(5, input.size() - 7)) {
+        if (!std::isdigit(c)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 std::string SteamID3ToSteamID(const std::string& usteamid)
 {
-    std::string steamid = usteamid;
+    std::string steamid = std::string(usteamid);
+
+    if (!isValidSteamID3(steamid))
+    {
+        std::cout << "Not valid" << std::endl;
+        return "";
+    }
 
     // Remove '[' and ']' characters
     steamid.erase(std::remove(steamid.begin(), steamid.end(), '['), steamid.end());
@@ -428,6 +450,8 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 		if (ExistingStorage.pClient)
 		{
 			ExistingStorage.pClient->Disconnect("Same Steam ID connected.");
+			g_ConnectClientStorage.remove(aSteamID);
+			ExistingStorageStored = false;
 		}
 		else
 		{
@@ -626,6 +650,7 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 	g_pOnValidateAuthTicketResponse = g_pForwards->CreateForward("OnValidateAuthTicketResponse", ET_Ignore, 4, NULL, Param_Cell, Param_Cell, Param_Cell, Param_String);
 
+	g_pGameEvents->AddListener(&g_ConnectEvents, "player_connect", true);
 	g_pGameEvents->AddListener(&g_ConnectEvents, "player_disconnect", true);
 
 	playerhelpers->AddClientListener(this);
@@ -789,23 +814,67 @@ void Connect::SDK_OnAllLoaded()
 	sharesys->AddNatives(myself, MyNatives);
 }
 
+std::map<int, std::string> g_useridToSteamID;
+
 void ConnectEvents::FireGameEvent(IGameEvent *event)
 {
 	const char *name = event->GetName();
 
-	if (strcmp(name, "player_disconnect") == 0)
+	if (strcmp(name, "player_connect") == 0)
 	{
 		const int userid = event->GetInt("userid");
+		const bool bot = event->GetBool("bot");
 		const char *networkid = event->GetString("networkid");
 
 		if (g_SvLogging->GetInt())
-			g_pSM->LogMessage(myself, "player_disconnect(user_id=%d, networkid=%s)", userid, networkid);
+			g_pSM->LogMessage(myself, "player_connect(user_id=%d, networkid=%s, bot=%d)", userid, networkid, bot);
+
+		if (bot) {
+			return;
+		}
 
 		std::string steamid = SteamID3ToSteamID(networkid);
 
-		if (g_SvLogging->GetInt())
-			g_pSM->LogMessage(myself, "%s OnClientDisconnecting", steamid.c_str());
+		if (!steamid.empty()) {
+			if (g_SvLogging->GetInt())
+				g_pSM->LogMessage(myself, "%s OnClientConnecting", steamid.c_str());
 
-		g_ConnectClientStorage.remove(steamid.c_str());
+			if (g_useridToSteamID.count(userid) > 0) {
+				g_useridToSteamID.erase(userid);
+			}
+
+			g_useridToSteamID.insert(std::make_pair(userid, steamid));
+		}
+	}
+	else if (strcmp(name, "player_disconnect") == 0)
+	{
+		const int userid = event->GetInt("userid");
+		const bool bot = event->GetBool("bot");
+		const char *networkid = event->GetString("networkid");
+
+		if (g_SvLogging->GetInt())
+			g_pSM->LogMessage(myself, "player_disconnect(user_id=%d, networkid=%s, bot=%d)", userid, networkid, bot);
+
+		if (bot) {
+			return;
+		}
+
+		std::string steamid = SteamID3ToSteamID(networkid);
+		if (g_useridToSteamID.count(userid) > 0)
+		{
+			std::string savedSteamID = g_useridToSteamID[userid];
+			if (steamid != savedSteamID) {
+				if (g_SvLogging->GetInt())
+					g_pSM->LogMessage(myself, "%s Tried to disconnect with steam id %s", savedSteamID.c_str(), steamid.c_str());
+				steamid = savedSteamID;
+			}
+		}
+
+		if (!steamid.empty()) {
+			if (g_SvLogging->GetInt())
+				g_pSM->LogMessage(myself, "%s OnClientDisconnecting", steamid.c_str());
+
+			g_ConnectClientStorage.remove(steamid.c_str());
+		}
 	}
 }
