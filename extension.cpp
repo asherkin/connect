@@ -53,6 +53,7 @@ SMEXT_LINK(&g_Connect);
 
 ConVar *g_ConnectVersion = CreateConVar("connect_version", SMEXT_CONF_VERSION, FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 ConVar *g_SvNoSteam = CreateConVar("sv_nosteam", "1", FCVAR_NOTIFY, "Disable steam validation and force steam authentication.");
+ConVar *g_SvNoSteamAntiSpoof = CreateConVar("sv_nosteam_antispoof", "2", FCVAR_NOTIFY, "0 = Disable, 1 = Prevent steam users to be spoofed by nosteamers, 2 = 1 + reject incoming same nosteam id, 3 = 1 + allow incoming same nosteam id");
 ConVar *g_SvLogging = CreateConVar("sv_connect_logging", "0", FCVAR_NOTIFY, "Log connection checks");
 
 // https://github.com/adocwang/steam_ticket_decrypter/blob/fc3ecf2a69193a7a29f5e5bffdbcda5b0b61e347/steam/steam_api_interop.cs#L9655C13-L9655C33
@@ -98,7 +99,7 @@ typedef enum EAuthProtocol
 const char *CSteamID::Render() const
 {
 	static char szSteamID[64];
-	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_0:%u:%u", (m_steamid.m_comp.m_unAccountID % 2) ? 1 : 0, (int32)m_steamid.m_comp.m_unAccountID/2);
+	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_%u:%u:%u", 0, this->GetAccountID() & 1, this->GetAccountID() >> 1);
 	return szSteamID;
 }
 
@@ -388,7 +389,7 @@ bool IsAuthSessionResponseSteamLegal(EAuthSessionResponse eAuthSessionResponse)
 
 DETOUR_DECL_MEMBER1(CSteam3Server__OnValidateAuthTicketResponse, int, ValidateAuthTicketResponse_t *, pResponse)
 {
-	char aSteamID[32];
+	char aSteamID[64];
 	strncpy(aSteamID, pResponse->m_SteamID.Render(), sizeof(aSteamID) - 1);
 
 	ConnectClientStorage Storage;
@@ -450,7 +451,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	g_bEndAuthSessionOnRejectConnection = true;
 	g_lastClientSteamID = CSteamID(ullSteamID);
 
-	char aSteamID[32];
+	char aSteamID[64];
 	strncpy(aSteamID, g_lastClientSteamID.Render(), sizeof(aSteamID));
 
 	ConnectClientStorage Storage(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, hashedCDkey, cdKeyLen);
@@ -473,24 +474,25 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	if (g_SvLogging->GetInt())
 		g_pSM->LogMessage(myself, "%s ExistingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, ExistingStorageStored, Storage.SteamAuthFailed, result, ExistingStorage.async);
 
-	if (ExistingStorageStored && !ExistingStorage.async)
+	if (ExistingStorageStored && !ExistingStorage.async && g_SvNoSteamAntiSpoof->GetInt())
 	{
-		if (Storage.SteamAuthFailed)
+		// Incoming NoSteam player trying to spoof steam player
+		if (Storage.SteamAuthFailed && !ExistingStorage.SteamAuthFailed)
 		{
 			RejectConnection(address, iClientChallenge, "Steam ID already in use.");
 			return NULL;
 		}
-
-		// Kick existing player
-		if (ExistingStorage.pClient)
+		// Incoming steam player currently spoofed by NoSteamer
+		else if (!Storage.SteamAuthFailed && ExistingStorage.SteamAuthFailed && ExistingStorage.pClient)
 		{
 			ExistingStorage.pClient->Disconnect("Same Steam ID connected.");
 			g_ConnectClientStorage.remove(aSteamID);
 			ExistingStorageStored = false;
 		}
-		else
+		// Incoming NoSteam player trying to spoof NoSteam player
+		else if (g_SvNoSteamAntiSpoof->GetInt() == 2 && !Storage.SteamAuthFailed && !ExistingStorage.SteamAuthFailed)
 		{
-			RejectConnection(address, iClientChallenge, "Please try again later.");
+			RejectConnection(address, iClientChallenge, "NoSteam ID already in use.");
 			return NULL;
 		}
 	}
