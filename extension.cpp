@@ -54,6 +54,7 @@ SMEXT_LINK(&g_Connect);
 ConVar *g_ConnectVersion = CreateConVar("connect_version", SMEXT_CONF_VERSION, FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 ConVar *g_SvNoSteam = CreateConVar("sv_nosteam", "1", FCVAR_NOTIFY, "Disable steam validation and force steam authentication.");
 ConVar *g_SvNoSteamAntiSpoof = CreateConVar("sv_nosteam_antispoof", "2", FCVAR_NOTIFY, "0 = Disable, 1 = Prevent steam users to be spoofed by nosteamers, 2 = 1 + reject incoming same nosteam id, 3 = 1 + allow incoming same nosteam id");
+ConVar *g_SvConnectClientTimeout = CreateConVar("sv_connect_client_timeout", "1.0", FCVAR_NOTIFY, "How many seconds before a player is considered timed out (game crashed, lost connection...)");
 ConVar *g_SvLogging = CreateConVar("sv_connect_logging", "0", FCVAR_NOTIFY, "Log connection checks");
 
 // https://github.com/adocwang/steam_ticket_decrypter/blob/fc3ecf2a69193a7a29f5e5bffdbcda5b0b61e347/steam/steam_api_interop.cs#L9655C13-L9655C33
@@ -81,6 +82,126 @@ IGameEventManager2 *g_pGameEvents = NULL;
 
 class CBaseClient;
 class CBaseServer;
+class INetChannelInfo;
+class IDemoRecorder;
+
+class INetChannelInfo
+{
+public:
+
+	enum {
+		GENERIC = 0,	// must be first and is default group
+		LOCALPLAYER,	// bytes for local player entity update
+		OTHERPLAYERS,	// bytes for other players update
+		ENTITIES,		// all other entity bytes
+		SOUNDS,			// game sounds
+		EVENTS,			// event messages
+		USERMESSAGES,	// user messages
+		ENTMESSAGES,	// entity messages
+		VOICE,			// voice data
+		STRINGTABLE,	// a stringtable update
+		MOVE,			// client move cmds
+		STRINGCMD,		// string command
+		SIGNON,			// various signondata
+		TOTAL,			// must be last and is not a real group
+	};
+	
+	virtual const char  *GetName( void ) const = 0;	// get channel name
+	virtual const char  *GetAddress( void ) const = 0; // get channel IP address as string
+	virtual float		GetTime( void ) const = 0;	// current net time
+	virtual float		GetTimeConnected( void ) const = 0;	// get connection time in seconds
+	virtual int			GetBufferSize( void ) const = 0;	// netchannel packet history size
+	virtual int			GetDataRate( void ) const = 0; // send data rate in byte/sec
+	
+	virtual bool		IsLoopback( void ) const = 0;	// true if loopback channel
+	virtual bool		IsTimingOut( void ) const = 0;	// true if timing out
+	virtual bool		IsPlayback( void ) const = 0;	// true if demo playback
+
+	virtual float		GetLatency( int flow ) const = 0;	 // current latency (RTT), more accurate but jittering
+	virtual float		GetAvgLatency( int flow ) const = 0; // average packet latency in seconds
+	virtual float		GetAvgLoss( int flow ) const = 0;	 // avg packet loss[0..1]
+	virtual float		GetAvgChoke( int flow ) const = 0;	 // avg packet choke[0..1]
+	virtual float		GetAvgData( int flow ) const = 0;	 // data flow in bytes/sec
+	virtual float		GetAvgPackets( int flow ) const = 0; // avg packets/sec
+	virtual int			GetTotalData( int flow ) const = 0;	 // total flow in/out in bytes
+	virtual int			GetSequenceNr( int flow ) const = 0;	// last send seq number
+	virtual bool		IsValidPacket( int flow, int frame_number ) const = 0; // true if packet was not lost/dropped/chocked/flushed
+	virtual float		GetPacketTime( int flow, int frame_number ) const = 0; // time when packet was send
+	virtual int			GetPacketBytes( int flow, int frame_number, int group ) const = 0; // group size of this packet
+	virtual bool		GetStreamProgress( int flow, int *received, int *total ) const = 0;  // TCP progress if transmitting
+	virtual float		GetTimeSinceLastReceived( void ) const = 0;	// get time since last recieved packet in seconds
+	virtual	float		GetCommandInterpolationAmount( int flow, int frame_number ) const = 0;
+	virtual void		GetPacketResponseLatency( int flow, int frame_number, int *pnLatencyMsecs, int *pnChoke ) const = 0;
+	virtual void		GetRemoteFramerate( float *pflFrameTime, float *pflFrameTimeStdDeviation ) const = 0;
+
+	virtual float		GetTimeoutSeconds() const = 0;
+};
+
+abstract_class INetChannel : public INetChannelInfo
+{
+public:
+	virtual	~INetChannel( void ) {};
+
+	virtual void	SetDataRate(float rate) = 0;
+	virtual bool	RegisterMessage(INetMessage *msg) = 0;
+	virtual bool	StartStreaming( unsigned int challengeNr ) = 0;
+	virtual void	ResetStreaming( void ) = 0;
+	virtual void	SetTimeout(float seconds) = 0;
+	virtual void	SetDemoRecorder(IDemoRecorder *recorder) = 0;
+	virtual void	SetChallengeNr(unsigned int chnr) = 0;
+	
+	virtual void	Reset( void ) = 0;
+	virtual void	Clear( void ) = 0;
+	virtual void	Shutdown(const char *reason) = 0;
+	
+	virtual void	ProcessPlayback( void ) = 0;
+	virtual bool	ProcessStream( void ) = 0;
+	virtual void	ProcessPacket( struct netpacket_s* packet, bool bHasHeader ) = 0;
+			
+	virtual bool	SendNetMsg(INetMessage &msg, bool bForceReliable = false, bool bVoice = false ) = 0;
+#ifdef POSIX
+	FORCEINLINE bool SendNetMsg(INetMessage const &msg, bool bForceReliable = false, bool bVoice = false ) { return SendNetMsg( *( (INetMessage *) &msg ), bForceReliable, bVoice ); }
+#endif
+	virtual bool	SendData(bf_write &msg, bool bReliable = true) = 0;
+	virtual bool	SendFile(const char *filename, unsigned int transferID) = 0;
+	virtual void	DenyFile(const char *filename, unsigned int transferID) = 0;
+	virtual void	RequestFile_OLD(const char *filename, unsigned int transferID) = 0;	// get rid of this function when we version the 
+	virtual void	SetChoked( void ) = 0;
+	virtual int		SendDatagram(bf_write *data) = 0;		
+	virtual bool	Transmit(bool onlyReliable = false) = 0;
+
+	virtual const netadr_t	&GetRemoteAddress( void ) const = 0;
+	virtual INetChannelHandler *GetMsgHandler( void ) const = 0;
+	virtual int				GetDropNumber( void ) const = 0;
+	virtual int				GetSocket( void ) const = 0;
+	virtual unsigned int	GetChallengeNr( void ) const = 0;
+	virtual void			GetSequenceData( int &nOutSequenceNr, int &nInSequenceNr, int &nOutSequenceNrAck ) = 0;
+	virtual void			SetSequenceData( int nOutSequenceNr, int nInSequenceNr, int nOutSequenceNrAck ) = 0;
+		
+	virtual void	UpdateMessageStats( int msggroup, int bits) = 0;
+	virtual bool	CanPacket( void ) const = 0;
+	virtual bool	IsOverflowed( void ) const = 0;
+	virtual bool	IsTimedOut( void ) const  = 0;
+	virtual bool	HasPendingReliableData( void ) = 0;
+
+	virtual void	SetFileTransmissionMode(bool bBackgroundMode) = 0;
+	virtual void	SetCompressionMode( bool bUseCompression ) = 0;
+	virtual unsigned int RequestFile(const char *filename) = 0;
+	virtual float	GetTimeSinceLastReceived( void ) const = 0;	// get time since last received packet in seconds
+
+	virtual void	SetMaxBufferSize(bool bReliable, int nBytes, bool bVoice = false ) = 0;
+
+	virtual bool	IsNull() const = 0;
+	virtual int		GetNumBitsWritten( bool bReliable ) = 0;
+	virtual void	SetInterpolationAmount( float flInterpolationAmount ) = 0;
+	virtual void	SetRemoteFramerate( float flFrameTime, float flFrameTimeStdDeviation ) = 0;
+
+	// Max # of payload bytes before we must split/fragment the packet
+	virtual void	SetMaxRoutablePayloadSize( int nSplitSize ) = 0;
+	virtual int		GetMaxRoutablePayloadSize() = 0;
+
+	virtual int		GetProtocolVersion() = 0;
+};
 
 typedef enum EConnect
 {
@@ -467,33 +588,71 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 		Storage.SteamAuthFailed = true;
 	}
 
-	// Only steam authenticated players can reject same steam id
 	ConnectClientStorage ExistingStorage;
 	bool ExistingStorageStored = g_ConnectClientStorage.retrieve(aSteamID, &ExistingStorage);
 
 	if (g_SvLogging->GetInt())
 		g_pSM->LogMessage(myself, "%s ExistingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, ExistingStorageStored, Storage.SteamAuthFailed, result, ExistingStorage.async);
 
-	if (ExistingStorageStored && !ExistingStorage.async && g_SvNoSteamAntiSpoof->GetInt())
+	if (ExistingStorageStored && !ExistingStorage.async)
 	{
-		// Incoming NoSteam player trying to spoof steam player
-		if (Storage.SteamAuthFailed && !ExistingStorage.SteamAuthFailed)
+		// Check if player has timed out (game crashed, lost connection...)
+		bool timedOut = false;
+		if (ExistingStorage.pClient && ExistingStorage.pClient->IsConnected())
 		{
-			RejectConnection(address, iClientChallenge, "Steam ID already in use.");
-			return NULL;
+			if (g_SvLogging->GetInt())
+				g_pSM->LogMessage(myself, "[TIMEOUT] %s ExistingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, ExistingStorageStored, Storage.SteamAuthFailed, result, ExistingStorage.async);
+
+			INetChannel *netchan = ExistingStorage.pClient->GetNetChannel();
+			if (!netchan)
+			{
+				timedOut = true;
+			}
+			else
+			{
+				if (g_SvLogging->GetInt())
+					g_pSM->LogMessage(myself, "[TIMEOUT] %s %f", aSteamID, netchan->GetTimeSinceLastReceived());
+
+				if (netchan->GetTimeSinceLastReceived() > g_SvConnectClientTimeout->GetFloat())
+				{
+					if (g_SvLogging->GetInt())
+						g_pSM->LogMessage(myself, "[TIMEOUT] %s timed out!", aSteamID);
+
+					timedOut = true;
+				}
+			}
 		}
-		// Incoming steam player currently spoofed by NoSteamer
-		else if (!Storage.SteamAuthFailed && ExistingStorage.SteamAuthFailed && ExistingStorage.pClient)
+
+		if (g_SvNoSteamAntiSpoof->GetInt())
 		{
-			ExistingStorage.pClient->Disconnect("Same Steam ID connected.");
-			g_ConnectClientStorage.remove(aSteamID);
-			ExistingStorageStored = false;
-		}
-		// Incoming NoSteam player trying to spoof NoSteam player
-		else if (g_SvNoSteamAntiSpoof->GetInt() == 2 && !Storage.SteamAuthFailed && !ExistingStorage.SteamAuthFailed)
-		{
-			RejectConnection(address, iClientChallenge, "NoSteam ID already in use.");
-			return NULL;
+			// Incoming NoSteam player trying to spoof steam player
+			if (Storage.SteamAuthFailed && !ExistingStorage.SteamAuthFailed)
+			{
+				RejectConnection(address, iClientChallenge, "You are not connected to steam, please try again.");
+				return NULL;
+			}
+			// Incoming steam player currently spoofed by NoSteamer
+			else if (!Storage.SteamAuthFailed && ExistingStorage.SteamAuthFailed)
+			{
+				// Dont do anything to let the original ConnectClient function
+				// disconnect the existing player
+				if (ExistingStorage.pClient)
+				{
+					g_bEndAuthSessionOnRejectConnection = false;
+					ExistingStorage.pClient->Disconnect("Same Steam ID connected.");
+					g_bEndAuthSessionOnRejectConnection = true;
+				}
+				g_ConnectClientStorage.remove(aSteamID);
+				ExistingStorageStored = false;
+			}
+			// Incoming NoSteam player trying to spoof NoSteam player
+			// Check if its not the same player trying to reconnect
+			// If he either timed out or if its exactly the same ip address and port
+			else if (g_SvNoSteamAntiSpoof->GetInt() == 2 && Storage.SteamAuthFailed && ExistingStorage.SteamAuthFailed && !timedOut && !address.CompareAdr(ExistingStorage.address, false))
+			{
+				RejectConnection(address, iClientChallenge, "NoSteam ID already in use.");
+				return NULL;
+			}
 		}
 	}
 
@@ -830,12 +989,17 @@ cell_t SteamClientGotValidateAuthTicketResponse(IPluginContext *pContext, const 
 	pContext->LocalToString(params[1], &pSteamID);
 
 	ConnectClientStorage Storage;
-	g_ConnectClientStorage.retrieve(pSteamID, &Storage);
+	if (g_ConnectClientStorage.retrieve(pSteamID, &Storage))
+	{
+		if (g_SvLogging->GetInt())
+			g_pSM->LogMessage(myself, "%s SteamClientGotValidateAuthTicketResponse: %d", pSteamID, Storage.GotValidateAuthTicketResponse);
 
+		return Storage.GotValidateAuthTicketResponse;
+	}
 	if (g_SvLogging->GetInt())
-		g_pSM->LogMessage(myself, "%s SteamClientGotValidateAuthTicketResponse: %d", pSteamID, Storage.GotValidateAuthTicketResponse);
+		g_pSM->LogMessage(myself, "%s SteamClientGotValidateAuthTicketResponse: FALSE!", pSteamID);
 
-	return Storage.GotValidateAuthTicketResponse;
+	return false;
 }
 
 const sp_nativeinfo_t MyNatives[] =
