@@ -28,9 +28,15 @@ class SDK(object):
           return True
     return False
 
-WinOnly = ['windows']
 WinLinux = ['windows', 'linux']
-WinLinuxMac = ['windows', 'linux', 'mac']
+TF2 = {
+  'windows': ['x86', 'x86_64'],
+  'linux': ['x86', 'x86_64']
+}
+CSGO = {
+  'windows': ['x86'],
+  'linux': ['x86', 'x86_64']
+}
 
 PossibleSDKs = {
 #  'episode1':  SDK('HL2SDK', '1.ep1', '1', 'EPISODEONE', WinLinux, 'episode1'),
@@ -38,21 +44,21 @@ PossibleSDKs = {
 #  'orangebox':  SDK('HL2SDKOB', '2.ep2', '3', 'ORANGEBOX', WinLinux, 'orangebox'),
 #  'bgt':  SDK('HL2SDK-BGT', '2.bgt', '4', 'BLOODYGOODTIME', WinOnly, 'bgt'),
 #  'eye':  SDK('HL2SDK-EYE', '2.eye', '5', 'EYE', WinOnly, 'eye'),
-  'css':  SDK('HL2SDKCSS', '2.css', '6', 'CSS', WinLinuxMac, 'css'),
-  'hl2dm':  SDK('HL2SDKHL2DM', '2.hl2dm', '7', 'HL2DM', WinLinuxMac, 'hl2dm'),
-  'dods': SDK('HL2SDKDODS', '2.dods', '8', 'DODS', WinLinuxMac, 'dods'),
-  'sdk2013': SDK('HL2SDK2013', '2.sdk2013', '9', 'SDK2013', WinLinuxMac, 'sdk2013'),
+  'css':  SDK('HL2SDKCSS', '2.css', '6', 'CSS', WinLinux, 'css'),
+  'hl2dm':  SDK('HL2SDKHL2DM', '2.hl2dm', '7', 'HL2DM', WinLinux, 'hl2dm'),
+  'dods': SDK('HL2SDKDODS', '2.dods', '8', 'DODS', WinLinux, 'dods'),
+  'sdk2013': SDK('HL2SDK2013', '2.sdk2013', '9', 'SDK2013', WinLinux, 'sdk2013'),
 #  'bms':  SDK('HL2SDKBMS', '2.bms', '11', 'BMS', WinLinux, 'bms'),
-  'tf2':  SDK('HL2SDKTF2', '2.tf2', '12', 'TF2', WinLinuxMac, 'tf2'),
-  'l4d':  SDK('HL2SDKL4D', '2.l4d', '13', 'LEFT4DEAD', WinLinuxMac, 'l4d'),
+  'tf2':  SDK('HL2SDKTF2', '2.tf2', '12', 'TF2', TF2, 'tf2'),
+  'l4d':  SDK('HL2SDKL4D', '2.l4d', '13', 'LEFT4DEAD', WinLinux, 'l4d'),
 #  'nucleardawn': SDK('HL2SDKND', '2.nd', '14', 'NUCLEARDAWN', WinLinuxMac, 'nucleardawn'),
 #  'contagion':  SDK('HL2SDKCONTAGION', '2.contagion', '15', 'CONTAGION', WinOnly, 'contagion'),
-  'l4d2': SDK('HL2SDKL4D2', '2.l4d2', '16', 'LEFT4DEAD2', WinLinuxMac, 'l4d2'),
+  'l4d2': SDK('HL2SDKL4D2', '2.l4d2', '16', 'LEFT4DEAD2', WinLinux, 'l4d2'),
 #  'swarm':  SDK('HL2SDK-SWARM', '2.swarm', '17', 'ALIENSWARM', WinOnly, 'swarm'),
 #  'portal2':  SDK('HL2SDKPORTAL2', '2.portal2', '18', 'PORTAL2', [], 'portal2'),
 #  'insurgency':  SDK('HL2SDKINSURGENCY', '2.insurgency', '19', 'INSURGENCY', WinLinuxMac, 'insurgency'),
 #  'blade':  SDK('HL2SDKBLADE', '2.blade', '21', 'BLADE', WinLinux, 'blade'),
-  'csgo': SDK('HL2SDKCSGO', '2.csgo', '23', 'CSGO', WinLinuxMac, 'csgo'),
+  'csgo': SDK('HL2SDKCSGO', '2.csgo', '23', 'CSGO', CSGO, 'csgo'),
 }
 
 def ResolveEnvPath(env, folder):
@@ -99,9 +105,7 @@ class ExtensionConfig(object):
     if builder.options.targets:
       target_archs = builder.options.targets.split(',')
     else:
-      target_archs = ['x86']
-      if builder.backend != 'amb2':
-        target_archs.append('x86_64')
+      target_archs = ['x86', 'x86_64']
 
     for arch in target_archs:
         try:
@@ -151,7 +155,7 @@ class ExtensionConfig(object):
     import re
     with open(os.path.join(builder.sourcePath, 'product.version'), 'r') as fp:
       productContents = fp.read()
-    m = re.match('(\d+)\.(\d+)\.(\d+).*', productContents)
+    m = re.match('(\\d+)\.(\\d+)\.(\\d+).*', productContents)
     if m == None:
       self.productVersion = '1.0.0'
     else:
@@ -228,6 +232,7 @@ class ExtensionConfig(object):
       self.configure_gcc(cxx)
     elif cxx.family == 'msvc':
       self.configure_msvc(cxx)
+    cxx.defines += ['HAVE_STRING_H']
     
     # Optimizaiton
     if builder.options.opt == '1':
@@ -273,7 +278,6 @@ class ExtensionConfig(object):
       '-Wno-switch',
       '-Wno-array-bounds',
       '-msse',
-      '-m32',
       '-fvisibility=hidden',
     ]
     cxx.cxxflags += [
@@ -284,7 +288,6 @@ class ExtensionConfig(object):
       '-fvisibility-inlines-hidden',
       '-fpermissive'
     ]
-    cxx.linkflags += ['-m32']
 
     have_gcc = cxx.vendor == 'gcc'
     have_clang = cxx.vendor == 'clang'
@@ -534,14 +537,7 @@ class ExtensionConfig(object):
 
     for library in dynamic_libs:
       source_path = os.path.join(lib_folder, library)
-      output_path = os.path.join(binary.localFolder, library)
-
-      # Ensure the output path exists.
-      context.AddFolder(binary.localFolder)
-      output = context.AddSymlink(source_path, output_path)
-
-      compiler.weaklinkdeps += [output]
-      compiler.linkflags[0:0] = [library]
+      compiler.postlink.append(source_path)
 
     return binary
 

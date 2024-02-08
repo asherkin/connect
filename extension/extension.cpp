@@ -17,7 +17,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "extension.hpp"
+#include "extension.h"
 #include "CDetour/detours.h"
 
 #include "steam/steamclientpublic.h"
@@ -217,9 +217,9 @@ void EndAuthSession(CSteamID steamID)
 	return (void)(reinterpret_cast<VFuncEmptyClass*>(this_ptr)->*u.mfpnew)(steamID);
 }
 
-DECL_DETOUR(CBaseServer__ConnectClient);
-DECL_DETOUR(CBaseServer__RejectConnection)
-DECL_DETOUR(CBaseServer__CheckChallengeType);
+CDetour* detourCBaseServer__ConnectClient = nullptr;
+CDetour* detourCBaseServer__RejectConnection = nullptr;
+CDetour* detourCBaseServer__CheckChallengeType = nullptr;
 
 bool g_bEndAuthSessionOnRejectConnection = false;
 CSteamID g_lastClientSteamID;
@@ -227,7 +227,18 @@ CSteamID g_lastClientSteamID;
 bool g_bSuppressCheckChallengeType = false;
 
 char passwordBuffer[255];
-DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
+
+#define DETOUR_DECL_MEMBER9(name, ret, p1type, p1name, p2type, p2name, p3type, p3name, p4type, p4name, p5type, p5name, p6type, p6name, p7type, p7name, p8type, p8name, p9type, p9name) \
+class name##Class \
+{ \
+public: \
+        ret name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name); \
+        static ret (name##Class::* name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type); \
+}; \
+ret (name##Class::* name##Class::name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type) = NULL; \
+ret name##Class::name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name)
+
+DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
 {
 	if (nAuthProtocol != k_EAuthProtocolSteam)
 	{
@@ -385,9 +396,9 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), g_pGameConf);
 
-	CREATE_DETOUR(CBaseServer__ConnectClient);
-	CREATE_DETOUR(CBaseServer__RejectConnection);
-	CREATE_DETOUR(CBaseServer__CheckChallengeType);
+	detourCBaseServer__ConnectClient = DETOUR_CREATE_MEMBER(CBaseServer__ConnectClient, "CBaseServer__ConnectClient");
+	detourCBaseServer__RejectConnection = DETOUR_CREATE_MEMBER(CBaseServer__RejectConnection, "CBaseServer__RejectConnection");
+	detourCBaseServer__CheckChallengeType = DETOUR_CREATE_MEMBER(CBaseServer__CheckChallengeType, "CBaseServer__CheckChallengeType");
 
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
@@ -412,9 +423,21 @@ void Connect::SDK_OnUnload()
 
 bool Connect::SDK_OnMetamodUnload(char *error, size_t maxlen)
 {
-	DESTROY_DETOUR(CBaseServer__ConnectClient);
-	DESTROY_DETOUR(CBaseServer__RejectConnection);
-	DESTROY_DETOUR(CBaseServer__CheckChallengeType);
+	if (detourCBaseServer__ConnectClient)
+	{
+		detourCBaseServer__ConnectClient->DisableDetour();
+		delete detourCBaseServer__ConnectClient;
+	}
+	if (detourCBaseServer__RejectConnection)
+	{
+		detourCBaseServer__RejectConnection->DisableDetour();
+		delete detourCBaseServer__RejectConnection;
+	}
+	if (detourCBaseServer__CheckChallengeType)
+	{
+		detourCBaseServer__CheckChallengeType->DisableDetour();
+		delete detourCBaseServer__CheckChallengeType;
+	}
 
 	return true;
 }

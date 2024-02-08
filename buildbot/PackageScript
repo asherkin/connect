@@ -29,7 +29,7 @@ def CopyFiles(src, dest, filter_ext=None):
     builder.AddCopy(entry_path, dest)
 
 
-folders = CreateFolders(['addons/sourcemod/extensions', 'addons/sourcemod/gamedata', 'addons/sourcemod/scripting', 'addons/sourcemod/scripting/include'])
+folders = CreateFolders(['addons/sourcemod/extensions', 'addons/sourcemod/extensions/x64', 'addons/sourcemod/gamedata', 'addons/sourcemod/scripting', 'addons/sourcemod/scripting/include'])
 
 pdblog = open(os.path.join(builder.buildPath, 'pdblog.txt'), 'wt')
 for cxx_task in Extension.extensions:
