@@ -537,7 +537,14 @@ class ExtensionConfig(object):
 
     for library in dynamic_libs:
       source_path = os.path.join(lib_folder, library)
-      compiler.postlink.append(source_path)
+      output_path = os.path.join(binary.localFolder, library)
+
+      # Ensure the output path exists.
+      context.AddFolder(binary.localFolder)
+      output = context.AddSymlink(source_path, output_path)
+
+      compiler.weaklinkdeps += [output]
+      compiler.linkflags[0:0] = [library]
 
     return binary
 
