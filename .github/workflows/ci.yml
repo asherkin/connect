@@ -1,0 +1,165 @@
+name: Extension builder
+
+on:
+  push:
+    branches: [ action, master ]
+  pull_request:
+    branches: [ action, master ]
+
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04,  windows-2019, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-20.04
+            cc: clang-10
+            cxx: clang++-10
+          - os: windows-2019
+            cc: msvc          
+          - os: ubuntu-latest
+            cc: clang
+            cxx: clang++
+          - os: windows-latest
+            cc: msvc
+      fail-fast: false
+
+    
+    name: ${{ matrix.os }} - ${{ matrix.cc }}
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PROJECT: 'connect'
+      SDKS: 'css hl2dm dods tf2'
+      MMSOURCE_VERSION: '1.10'
+      SOURCEMOD_VERSION: '1.11'
+      CACHE_PATH: ${{ github.workspace }}/cache
+    steps:
+      - name: Concatenate SDK Names
+        shell: bash
+        run: |
+          # Paranoia
+          SDKS_VAR="${{env.SDKS}}"
+          # This will be used in our cache key
+          echo "SDKS_KEY=${SDKS_VAR//[[:blank:]]/}" >> $GITHUB_ENV
+
+      - name: Linux dependencies
+        if: startsWith(runner.os, 'Linux')
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-multilib g++-multilib libstdc++6 lib32stdc++6 \
+            libc6-dev libc6-dev-i386 linux-libc-dev \
+            linux-libc-dev:i386 lib32z1-dev ${{ matrix.cc }}
+    
+      - uses: actions/setup-python@v4
+        name: Setup Python 3.9
+        with:
+          python-version: 3.9
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          
+      - uses: actions/checkout@v3
+        name: Repository checkout
+        with:
+          fetch-depth: 0
+          path: extension
+        
+      - uses: actions/cache@v3
+        name: Cache dependencies
+        env:
+          cache-name: connect-cache
+        with:
+          path: ${{ env.CACHE_PATH }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-sm${{ env.SOURCEMOD_VERSION }}-mmsource${{ env.MMSOURCE_VERSION }}-${{ env.SDKS_KEY }}
+
+      - shell: bash
+        name: Install dependencies
+        run: |
+          mkdir -p "${{ env.CACHE_PATH }}"
+          cd "${{ env.CACHE_PATH }}"
+          shallow_checkout () {
+              # Param 1 is origin
+              # Param 2 is branch
+              # Param 3 is name
+              if [ ! -d "$3" ]; then
+                  git clone "$1" --depth 1 --branch "$2" "$3"
+              fi
+              cd "$3"
+              git remote set-url origin "$1"
+              git fetch --depth 1 origin "$2"
+              git checkout --force --recurse-submodules FETCH_HEAD
+              git submodule init
+              git submodule update --depth 1
+              cd ..
+          }
+          # We are aware of what we are doing!
+          git config --global advice.detachedHead false
+          # Verify github cache, and see if we don't have the sdks already cloned and update them
+          for sdk in ${{ env.SDKS }}
+          do
+              shallow_checkout "https://github.com/alliedmodders/hl2sdk" "${sdk}" "hl2sdk-${sdk}"
+          done
+          shallow_checkout "https://github.com/alliedmodders/ambuild" "master" "ambuild"
+          shallow_checkout "https://github.com/alliedmodders/sourcemod" "${{env.SOURCEMOD_VERSION}}-dev" "sourcemod"
+          shallow_checkout "https://github.com/alliedmodders/metamod-source/" "${{env.MMSOURCE_VERSION}}-dev" "metamod-source"
+          # But maybe others aren't (also probably unnecessary because git actions but paranoia)
+          git config --global advice.detachedHead true
+
+      - name: Setup AMBuild
+        shell: bash
+        run: |
+          cd "${{ env.CACHE_PATH }}"
+          python -m pip install ./ambuild
+
+      - name: Select clang compiler
+        if: startsWith(runner.os, 'Linux')
+        run: |
+          echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.cxx }}" >> $GITHUB_ENV
+          ${{ matrix.cc }} --version
+          ${{ matrix.cxx }} --version
+
+      - name: Build
+        shell: bash
+        working-directory: extension
+        run: |
+          mkdir build
+          cd build
+          python ../configure.py --enable-auto-versioning --enable-optimize --sdks="${{ env.SDKS }}" --mms-path="${{ env.CACHE_PATH }}/metamod-source" --hl2sdk-root="${{ env.CACHE_PATH }}" --sm-path="${{ env.CACHE_PATH }}/sourcemod"
+          ambuild
+
+          PLATFORM="${{ runner.os }}"
+          FILENAME="$(cat ./includes/filename_versioning.txt)"
+          ZIP_FILENAME="${{ env.PROJECT }}-${FILENAME}-${PLATFORM,}.zip"
+
+          echo "ZIP_FILENAME=${ZIP_FILENAME}" >> $GITHUB_ENV
+
+      - name: Package release - Windows
+        if: github.event_name == 'push' && github.ref == 'refs/heads/action' && startsWith(matrix.os, 'windows-latest')
+        working-directory: extension/build/package
+        run: Compress-Archive -Path * -Destination ${{ env.ZIP_FILENAME }}
+
+      - name: Package release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/action' && startsWith(matrix.os, 'ubuntu-latest')
+        working-directory: extension/build/package
+        run: zip -r "${{ env.ZIP_FILENAME }}" .
+
+      - name: Upload release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/action' && (startsWith(matrix.os, 'ubuntu-latest') || startsWith(matrix.os, 'windows-latest'))
+        shell: bash
+        working-directory: extension/build/package
+        run: |
+          echo "Begin upload..."
+          AUTHORIZATION="$(echo -n '${{ secrets.USERNAME }}:${{ secrets.PASSWORD }}' | base64)"
+          echo "::add-mask::${AUTHORIZATION}"
+
+          HTTP_CODE=$(curl -XPOST -H "Authorization: Basic ${AUTHORIZATION}" -H "Content-Type: application/zip" --output /dev/null --silent --write-out "%{http_code}" --data-binary "@${{ env.ZIP_FILENAME }}" "https://builds.limetech.io/upload.php?project=${{ env.PROJECT }}&branch=action&filename=${{ env.ZIP_FILENAME }}")
+          if test ${HTTP_CODE} -ne 200; then
+            exit ${HTTP_CODE}
+          fi
+          echo "Upload successful!"

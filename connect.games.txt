@@ -15,14 +15,14 @@
 			"ISteamGameServer__BeginAuthSession"
 			{
 				"linux"         "29"
-				"mac"           "29"
+				"linux64"       "29"
 				"windows"       "29"
 			}
 
 			"ISteamGameServer__EndAuthSession"
 			{
 				"linux"         "30"
-				"mac"           "30"
+				"linux64"       "30"
 				"windows"       "30"
 			}
 		}
@@ -39,7 +39,7 @@
 			{
 				"library"       "engine"
 				"linux"         "@_Z12Steam3Serverv"
-				"mac"           "@_Z12Steam3Serverv"
+				"linux64"       "@_Z12Steam3Serverv"
 			}
 		}
 	}
@@ -102,7 +102,7 @@
 			{
 				"library"       "engine"
 				"linux"         "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
-				"mac"           "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
+				"linux64"       "@_ZN11CBaseServer13ConnectClientER8netadr_siiiiPKcS3_S3_i"
 				"windows"       "\x55\x8B\xEC\x81\xEC\x24\x05\x00\x00"
 			}
 
@@ -110,7 +110,7 @@
 			{
 				"library"       "engine"
 				"linux"         "@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
-				"mac"           "@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
+				"linux64"       "@_ZN11CBaseServer16RejectConnectionERK8netadr_siPKc"
 				"windows"       "\x55\x8B\xEC\x81\xEC\x04\x05\x00\x00\x57"
 			}
 
@@ -118,7 +118,7 @@
 			{
 				"library"       "engine"
 				"linux"         "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
-				"mac"           "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
+				"linux64"       "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
 				"windows"       "\x55\x8B\xEC\x56\x57\x8B\x7D\x08\x8B\xF1\x8D\x4E\x04"
 			}
 
@@ -126,7 +126,7 @@
 			{
 				"library"       "engine"
 				"linux"         "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"mac"           "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
+				"linux64"       "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
 				"windows"       "\x55\x8B\xEC\x83\xEC\x14\x53\x8B\x5D\x14"
 			}
 		}
