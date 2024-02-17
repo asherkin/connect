@@ -575,6 +575,23 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	char aSteamID[64];
 	strncpy(aSteamID, g_lastClientSteamID.Render(), sizeof(aSteamID));
 
+	ConnectClientStorage existingStorage;
+	bool existingStorageStored = g_ConnectClientStorage.retrieve(aSteamID, &existingStorage);
+
+	if (g_SvLogging->GetInt())
+		g_pSM->LogMessage(myself, "%s existingStorageStored: %d, existingStorage.SteamAuthFailed: %d, Async: %d", aSteamID, existingStorageStored, existingStorage.SteamAuthFailed, existingStorage.async);
+
+	if (existingStorageStored)
+	{
+		g_ConnectClientStorage.remove(aSteamID);
+		EndAuthSession(g_lastClientSteamID);
+
+		// Only wait for async on auto-retry, manual retries should go through the full chain
+		// Don't want to leave the client waiting forever if something breaks in the async forward
+		if (existingStorage.iClientChallenge == iClientChallenge)
+			existingStorage.async = true;
+	}
+
 	ConnectClientStorage Storage(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, hashedCDkey, cdKeyLen);
 
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
@@ -588,22 +605,19 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 		Storage.SteamAuthFailed = true;
 	}
 
-	ConnectClientStorage ExistingStorage;
-	bool ExistingStorageStored = g_ConnectClientStorage.retrieve(aSteamID, &ExistingStorage);
-
 	if (g_SvLogging->GetInt())
-		g_pSM->LogMessage(myself, "%s ExistingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, ExistingStorageStored, Storage.SteamAuthFailed, result, ExistingStorage.async);
+		g_pSM->LogMessage(myself, "%s existingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, existingStorageStored, Storage.SteamAuthFailed, result, existingStorage.async);
 
-	if (ExistingStorageStored && !ExistingStorage.async)
+	if (existingStorageStored && !existingStorage.async)
 	{
 		// Check if player has timed out (game crashed, lost connection...)
 		bool timedOut = false;
-		if (ExistingStorage.pClient && ExistingStorage.pClient->IsConnected())
+		if (existingStorage.pClient && existingStorage.pClient->IsConnected())
 		{
 			if (g_SvLogging->GetInt())
-				g_pSM->LogMessage(myself, "[TIMEOUT] %s ExistingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, ExistingStorageStored, Storage.SteamAuthFailed, result, ExistingStorage.async);
+				g_pSM->LogMessage(myself, "[TIMEOUT] %s existingStorageStored: %d, SteamAuthFailed: %d (%d), Async: %d", aSteamID, existingStorageStored, Storage.SteamAuthFailed, result, existingStorage.async);
 
-			INetChannel *netchan = ExistingStorage.pClient->GetNetChannel();
+			INetChannel *netchan = existingStorage.pClient->GetNetChannel();
 			if (!netchan)
 			{
 				timedOut = true;
@@ -626,29 +640,29 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 		if (g_SvNoSteamAntiSpoof->GetInt())
 		{
 			// Incoming NoSteam player trying to spoof steam player
-			if (Storage.SteamAuthFailed && !ExistingStorage.SteamAuthFailed)
+			if (Storage.SteamAuthFailed && !existingStorage.SteamAuthFailed)
 			{
 				RejectConnection(address, iClientChallenge, "You are not connected to steam, please try again.");
 				return NULL;
 			}
 			// Incoming steam player currently spoofed by NoSteamer
-			else if (!Storage.SteamAuthFailed && ExistingStorage.SteamAuthFailed)
+			else if (!Storage.SteamAuthFailed && existingStorage.SteamAuthFailed)
 			{
 				// Dont do anything to let the original ConnectClient function
 				// disconnect the existing player
-				if (ExistingStorage.pClient)
+				if (existingStorage.pClient)
 				{
 					g_bEndAuthSessionOnRejectConnection = false;
-					ExistingStorage.pClient->Disconnect("Same Steam ID connected.");
+					existingStorage.pClient->Disconnect("Same Steam ID connected.");
 					g_bEndAuthSessionOnRejectConnection = true;
 				}
 				g_ConnectClientStorage.remove(aSteamID);
-				ExistingStorageStored = false;
+				existingStorageStored = false;
 			}
 			// Incoming NoSteam player trying to spoof NoSteam player
 			// Check if its not the same player trying to reconnect
 			// If he either timed out or if its exactly the same ip address and port
-			else if (g_SvNoSteamAntiSpoof->GetInt() == 2 && Storage.SteamAuthFailed && ExistingStorage.SteamAuthFailed && !timedOut && !address.CompareAdr(ExistingStorage.address, false))
+			else if (g_SvNoSteamAntiSpoof->GetInt() == 2 && Storage.SteamAuthFailed && existingStorage.SteamAuthFailed && !timedOut && !address.CompareAdr(existingStorage.address, false))
 			{
 				RejectConnection(address, iClientChallenge, "NoSteam ID already in use.");
 				return NULL;
@@ -659,10 +673,10 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient *, netadr_t &, address, 
 	char rejectReason[255];
 	cell_t retVal = k_OnClientPreConnectEx_Accept;
 
-	if (ExistingStorageStored && ExistingStorage.async)
+	if (existingStorageStored && existingStorage.async)
 	{
 		// if client auto-retries while ClientPreConnectEx has still not been called
-		if (!ExistingStorage.clientPreConnectExCalled)
+		if (!existingStorage.clientPreConnectExCalled)
 			retVal = k_OnClientPreConnectEx_Async;
 	}
 	else
