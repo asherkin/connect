@@ -359,8 +359,15 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 
+	int steam3ServerFuncOffset = 0;
+	if (!g_pGameConf->GetOffset("CheckMasterServerRequestRestart_Steam3ServerFuncOffset", &steam3ServerFuncOffset) || steam3ServerFuncOffset == 0)
+	{
+		snprintf(error, maxlen, "Failed to find CheckMasterServerRequestRestart_Steam3ServerFuncOffset offset.\n");
+		return false;
+	}
+
 	//META_CONPRINTF("CheckMasterServerRequestRestart: %p\n", address);
-	address = (void *)((intptr_t)address + 1); // Skip CALL opcode
+	address = (void *)((intptr_t)address + steam3ServerFuncOffset);
 	intptr_t offset = (intptr_t)(*(void **)address); // Get offset
 
 	g_pSteam3ServerFunc = (Steam3ServerFunc)((intptr_t)address + offset + sizeof(intptr_t));

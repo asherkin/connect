@@ -25,6 +25,11 @@
 				"linux64"       "30"
 				"windows"       "30"
 			}
+
+			"CheckMasterServerRequestRestart_Steam3ServerFuncOffset"
+			{
+				"windows"		"240"
+			}
 		}
 
 		"Signatures"
