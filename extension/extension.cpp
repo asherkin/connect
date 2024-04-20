@@ -26,16 +26,7 @@ Connect g_connect;
 
 SMEXT_LINK(&g_connect);
 
-ConVar connect_version("connect_version", SMEXT_CONF_VERSION, FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
-ConVar connect_debug("connect_debug", 0, FCVAR_NONE, "connect_debug");
-
-#define CONNECT_DEBUG(pMsg, ...)                    \
-    if (connect_debug.GetBool())                    \
-    {                                               \
-        g_SMAPI->ConPrintf(pMsg, __VA_ARGS__);      \
-    }                                               \
-    else {}
-
+ConVar connectVersion("connect_version", SMEXT_CONF_VERSION, FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 
 IGameConfig *g_pGameConf = NULL;
 
@@ -166,10 +157,8 @@ int g_nEndAuthSessionOffset = 0;
 
 EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
 {
-    if (!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer || g_nBeginAuthSessionOffset == 0)
-    {
-        return k_EBeginAuthSessionResultOK;
-    }
+	if (!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer || g_nBeginAuthSessionOffset == 0)
+		return k_EBeginAuthSessionResultOK;
 
 	void **this_ptr = *(void ***)&g_pSteam3Server->m_pSteamGameServer;
 	void **vtable = *(void ***)g_pSteam3Server->m_pSteamGameServer;
@@ -189,7 +178,7 @@ EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTick
 	u.s.adjustor = 0;
 #else
 		void *addr;
-    } u = {};
+	} u;
 
 	u.addr = func;
 #endif
@@ -220,7 +209,7 @@ void EndAuthSession(CSteamID steamID)
 	u.s.adjustor = 0;
 #else
 		void *addr;
-    } u = {};
+	} u;
 
 	u.addr = func;
 #endif
@@ -251,28 +240,6 @@ ret name##Class::name(p1type p1name, p2type p2name, p3type p3name, p4type p4name
 
 DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
 {
-    CONNECT_DEBUG(
-        "this       == %p\n"
-        "netadr_t&  == %p\n", // i don't think this should be %p
-        "nProtocol  == %i\n"
-        "iChallenge == %i\n"
-        "iCliChlnge == %i\n"
-        "nAuthProto == %i\n"
-        "pchName    == %s\n" // probably should sani this b4 printing to console...
-        "pchPasswd  == %s\n" // ^
-        "pCookie    == %p\n"
-        "cbCookie   == %i\n",
-        (CBaseServer*)this,
-        address,
-        nProtocol,
-        iChallenge,
-        iClientChallenge,
-        nAuthProtocol,
-        pchName,
-        pchPassword,
-        pCookie,
-        cbCookie
-    );
 	if (nAuthProtocol != k_EAuthProtocolSteam)
 	{
 		// This is likely a SourceTV client, we don't want to interfere here.
@@ -281,10 +248,8 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 
 	g_pBaseServer = (CBaseServer *)this;
 
-    if (pCookie == NULL || (size_t)cbCookie < sizeof(uint64))
+	if (pCookie == NULL || (size_t)cbCookie < sizeof(uint64))
 	{
-        CONNECT_DEBUG("pCookie = %p || (size_t)cbCookie = %x <  %x == sizeof(uint64)",
-                       pCookie,        (size_t)cbCookie,              sizeof(uint64));
 		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectInvalidSteamCertLen");
 		return NULL;
 	}
@@ -303,8 +268,6 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
 	if (result != k_EBeginAuthSessionResultOK)
 	{
-        CONNECT_DEBUG("EBeginAuthSessionResult result == %i", static_cast<int>(result));
-
 		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectSteam");
 		return NULL;
 	}
@@ -396,12 +359,12 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 
-	CONNECT_DEBUG("CheckMasterServerRequestRestart: %p\n", address);
+	//META_CONPRINTF("CheckMasterServerRequestRestart: %p\n", address);
 	address = (void *)((intptr_t)address + 1); // Skip CALL opcode
 	intptr_t offset = (intptr_t)(*(void **)address); // Get offset
 
 	g_pSteam3ServerFunc = (Steam3ServerFunc)((intptr_t)address + offset + sizeof(intptr_t));
-    CONNECT_DEBUG("Steam3Server: %p\n", g_pSteam3ServerFunc);
+	//META_CONPRINTF("Steam3Server: %p\n", g_pSteam3ServerFunc);
 #endif
 
 	g_pSteam3Server = Steam3Server();
@@ -411,13 +374,13 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 
-	
-	CONNECT_DEBUG("ISteamGameServer: %p\n", g_pSteam3Server->m_pSteamGameServer);
-	CONNECT_DEBUG("ISteamUtils: %p\n", g_pSteam3Server->m_pSteamGameServerUtils);
-	// CONNECT_DEBUG("ISteamMasterServerUpdater: %p\n", g_pSteam3Server->m_pSteamMasterServerUpdater);
-	CONNECT_DEBUG("ISteamNetworking: %p\n", g_pSteam3Server->m_pSteamGameServerNetworking);
-	CONNECT_DEBUG("ISteamGameServerStats: %p\n", g_pSteam3Server->m_pSteamGameServerStats);
-	
+	/*
+	META_CONPRINTF("ISteamGameServer: %p\n", g_pSteam3Server->m_pSteamGameServer);
+	META_CONPRINTF("ISteamUtils: %p\n", g_pSteam3Server->m_pSteamGameServerUtils);
+	META_CONPRINTF("ISteamMasterServerUpdater: %p\n", g_pSteam3Server->m_pSteamMasterServerUpdater);
+	META_CONPRINTF("ISteamNetworking: %p\n", g_pSteam3Server->m_pSteamGameServerNetworking);
+	META_CONPRINTF("ISteamGameServerStats: %p\n", g_pSteam3Server->m_pSteamGameServerStats);
+	*/
 
 	if (!g_pGameConf->GetOffset("ISteamGameServer__BeginAuthSession", &g_nBeginAuthSessionOffset) || g_nBeginAuthSessionOffset == 0)
 	{
