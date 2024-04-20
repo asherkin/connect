@@ -145,7 +145,7 @@ jobs:
         run: Compress-Archive -Path * -Destination ${{ env.ZIP_FILENAME }}
 
       - name: Package release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/action' && startsWith(matrix.os, 'ubuntu-latest')
+        # if: github.event_name == 'push' && github.ref == 'refs/heads/action' && startsWith(matrix.os, 'ubuntu-latest')
         working-directory: extension/build/package
         run: zip -r "${{ env.ZIP_FILENAME }}" .
 
