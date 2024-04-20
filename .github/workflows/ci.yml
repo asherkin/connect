@@ -163,14 +163,14 @@ jobs:
             exit ${HTTP_CODE}
           fi
           echo "Upload successful!"
-          
+
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4.3.2
         with:
           # Artifact name
           # name: # optional, default is artifact
           # A file, directory or wildcard pattern that describes what to upload
-          path: extension/build/package/${{ env.ZIP_FILENAME }}
+          path: ${{ github.workspace }}/extension/build/package/${{ env.ZIP_FILENAME }}
           # The desired behavior if no files are found using the provided path.
           if-no-files-found: error
           # Duration after which artifact will expire in days. 0 means using default retention.
