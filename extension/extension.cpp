@@ -188,7 +188,7 @@ EBeginAuthSessionResult Hook_BeginAuthSession(const void *pAuthTicket, int cbAut
 
 	// Regular auth session ?
 	auto result = META_RESULT_ORIG_RET(EBeginAuthSessionResult);
-	if (META_RESULT_ORIG_RET(EBeginAuthSessionResult) == k_EBeginAuthSessionResultDuplicateRequest)
+	if (result == k_EBeginAuthSessionResultDuplicateRequest)
 	{
 		if (strcmp(steamID.Render(), g_lastAuthSteamID.c_str()) == 0 && g_lastAuthTicket == pAuthTicket && g_lastcbAuthTicket == cbAuthTicket && g_lastAuthSessionResult == k_EBeginAuthSessionResultOK)
 		{
