@@ -106,6 +106,22 @@
 
 		"Offsets"
 		{
+			"ISteamGameServer__BeginAuthSession"
+			{
+				"linux"         "26"
+				"linux64"       "26"
+				"windows"       "26"
+				"windows64"     "26"
+			}
+
+			"ISteamGameServer__EndAuthSession"
+			{
+				"linux"         "27"
+				"linux64"       "27"
+				"windows"       "27"
+				"windows64"     "27"
+			}
+
 			"CheckMasterServerRequestRestart_Steam3ServerFuncOffset"
 			{
 				"windows"		"240"

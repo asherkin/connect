@@ -21,6 +21,7 @@
 #include "CDetour/detours.h"
 
 #include "steam/steamclientpublic.h"
+#include <string>
 
 Connect g_connect;
 
@@ -155,6 +156,53 @@ class VFuncEmptyClass{};
 int g_nBeginAuthSessionOffset = 0;
 int g_nEndAuthSessionOffset = 0;
 
+SH_DECL_MANUALHOOK3(MHook_BeginAuthSession, 0, 0, 0, EBeginAuthSessionResult, const void *, int, CSteamID);
+int g_nHookIdBeginAuthSession = -1;
+
+bool g_hookSessionAuth = false;
+EBeginAuthSessionResult g_lastAuthSessionResult;
+const void* g_lastAuthTicket;
+int g_lastcbAuthTicket;
+std::string g_lastAuthSteamID;
+
+void ResetAuthTracking()
+{
+	g_hookSessionAuth = false;
+	g_lastAuthSteamID = "";
+	g_lastcbAuthTicket = 0;
+	g_lastAuthTicket = nullptr;
+	g_lastAuthSessionResult = k_EBeginAuthSessionResultInvalidTicket;
+}
+
+EBeginAuthSessionResult Hook_BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
+{
+	if (g_hookSessionAuth)
+	{
+		g_hookSessionAuth = false;
+		g_lastAuthSteamID = steamID.Render();
+		g_lastcbAuthTicket = cbAuthTicket;
+		g_lastAuthTicket = pAuthTicket;
+		g_lastAuthSessionResult = META_RESULT_ORIG_RET(EBeginAuthSessionResult);	
+		RETURN_META_VALUE(MRES_IGNORED, g_lastAuthSessionResult);
+	}
+
+	// Regular auth session ?
+	auto result = META_RESULT_ORIG_RET(EBeginAuthSessionResult);
+	if (META_RESULT_ORIG_RET(EBeginAuthSessionResult) == k_EBeginAuthSessionResultDuplicateRequest)
+	{
+		if (strcmp(steamID.Render(), g_lastAuthSteamID.c_str()) == 0 && g_lastAuthTicket == pAuthTicket && g_lastcbAuthTicket == cbAuthTicket && g_lastAuthSessionResult == k_EBeginAuthSessionResultOK)
+		{
+			// Let the server know everything is fine
+			// g_pSM->LogMessage(myself, "You alright ;)");
+			result = k_EBeginAuthSessionResultOK;
+			SET_META_RESULT(MRES_OVERRIDE);
+		}
+	}
+
+	ResetAuthTracking();
+	return result;
+}
+
 EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
 {
 	if (!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer || g_nBeginAuthSessionOffset == 0)
@@ -183,11 +231,16 @@ EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTick
 	u.addr = func;
 #endif
 
-	return (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(this_ptr)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
+	g_hookSessionAuth = true;
+	auto res = (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(this_ptr)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
+	g_hookSessionAuth = false;
+	return res;
 }
 
 void EndAuthSession(CSteamID steamID)
 {
+	ResetAuthTracking();
+
 	if (!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer || g_nEndAuthSessionOffset == 0)
 		return;
 
@@ -240,6 +293,8 @@ ret name##Class::name(p1type p1name, p2type p2name, p3type p3name, p4type p4name
 
 DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
 {
+	ResetAuthTracking();
+
 	if (nAuthProtocol != k_EAuthProtocolSteam)
 	{
 		// This is likely a SourceTV client, we don't want to interfere here.
@@ -265,6 +320,7 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 	g_bEndAuthSessionOnRejectConnection = true;
 	g_lastClientSteamID = CSteamID(ullSteamID);
 
+	// Validate steam ticket
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
 	if (result != k_EBeginAuthSessionResultOK)
 	{
@@ -381,6 +437,12 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 
+	if (!g_pSteam3Server->m_pSteamGameServer)
+	{
+		snprintf(error, maxlen, "Unable to get Steam Game Server.\n");
+		return false;
+	}
+
 	/*
 	META_CONPRINTF("ISteamGameServer: %p\n", g_pSteam3Server->m_pSteamGameServer);
 	META_CONPRINTF("ISteamUtils: %p\n", g_pSteam3Server->m_pSteamGameServerUtils);
@@ -394,6 +456,12 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		snprintf(error, maxlen, "Failed to find ISteamGameServer__BeginAuthSession offset.\n");
 		return false;
 	}
+	SH_MANUALHOOK_RECONFIGURE(MHook_BeginAuthSession, g_nBeginAuthSessionOffset, 0, 0);
+	if (SH_ADD_MANUALHOOK(MHook_BeginAuthSession, g_pSteam3Server->m_pSteamGameServer, SH_STATIC(Hook_BeginAuthSession), true) == 0)
+	{
+		snprintf(error, maxlen, "Failed to setup ISteamGameServer__BeginAuthSession hook.\n");
+		return false;
+	}
 
 	if (!g_pGameConf->GetOffset("ISteamGameServer__EndAuthSession", &g_nEndAuthSessionOffset) || g_nEndAuthSessionOffset == 0)
 	{
@@ -404,8 +472,28 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), g_pGameConf);
 
 	detourCBaseServer__ConnectClient = DETOUR_CREATE_MEMBER(CBaseServer__ConnectClient, "CBaseServer__ConnectClient");
+	if (detourCBaseServer__ConnectClient == nullptr)
+	{
+		snprintf(error, maxlen, "Failed to create CBaseServer__ConnectClient detour.\n");
+		return false;
+	}
+	detourCBaseServer__ConnectClient->EnableDetour();
+
 	detourCBaseServer__RejectConnection = DETOUR_CREATE_MEMBER(CBaseServer__RejectConnection, "CBaseServer__RejectConnection");
+	if (detourCBaseServer__RejectConnection == nullptr)
+	{
+		snprintf(error, maxlen, "Failed to create CBaseServer__RejectConnection detour.\n");
+		return false;
+	}
+	detourCBaseServer__RejectConnection->EnableDetour();
+
 	detourCBaseServer__CheckChallengeType = DETOUR_CREATE_MEMBER(CBaseServer__CheckChallengeType, "CBaseServer__CheckChallengeType");
+	if (detourCBaseServer__CheckChallengeType == nullptr)
+	{
+		snprintf(error, maxlen, "Failed to create CBaseServer__CheckChallengeType detour.\n");
+		return false;
+	}
+	detourCBaseServer__CheckChallengeType->EnableDetour();
 
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
