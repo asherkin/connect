@@ -81,14 +81,6 @@
 				"windows"       "\x55\x8B\xEC\x8B\x55\x08\x8B\x02\x89\x41\x59\x8B\x42\x04"
 			}
 
-			"CBaseServer__CheckChallengeType"
-			{
-				"library"       "engine"
-				"linux"         "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"mac"           "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"windows"       "\x55\x8B\xEC\x83\xEC\x14\x56\x57\x8B\x7D\x2A\x8B\xF1"
-			}
-
 			"CBaseServer__CheckMasterServerRequestRestart"
 			{
 				"library"       "engine"
@@ -152,14 +144,6 @@
 				"linux"         "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
 				"linux64"       "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
 				"windows"       "\x55\x8B\xEC\x56\x8B\xF1\x57\x8B\x7D\x08\x8D\x4E\x04"
-			}
-
-			"CBaseServer__CheckChallengeType"
-			{
-				"library"       "engine"
-				"linux"         "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"linux64"       "@_ZN11CBaseServer18CheckChallengeTypeEP11CBaseClientiR8netadr_siPKcii"
-				"windows"       "\x55\x8B\xEC\x83\xEC\x14\x53\x8B\x5D\x14"
 			}
 
 			"CBaseServer__CheckMasterServerRequestRestart"

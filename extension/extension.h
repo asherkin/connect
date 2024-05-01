@@ -100,4 +100,24 @@ public: //IConCommandBaseAccessor
 	bool RegisterConCommandBase(ConCommandBase *pCommand);
 };
 
+#define DETOUR_DECL_MEMBER9(name, ret, p1type, p1name, p2type, p2name, p3type, p3name, p4type, p4name, p5type, p5name, p6type, p6name, p7type, p7name, p8type, p8name, p9type, p9name) \
+class name##Class \
+{ \
+public: \
+        ret name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name); \
+        static ret (name##Class::* name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type); \
+}; \
+ret (name##Class::* name##Class::name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type) = NULL; \
+ret name##Class::name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name)
+
+struct mfpDetails {
+	void *addr;
+	intptr_t adjustor;
+
+	void Init(void* addr, intptr_t adj = 0) {
+		this->addr = addr;
+		this->adjustor = adj;
+	}
+};
+
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_PROPER_H_
