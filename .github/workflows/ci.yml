@@ -11,21 +11,15 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-20.04,  windows-2019, ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, windows-2022]
         include:
-          - os: ubuntu-20.04
-            cc: clang-10
-            cxx: clang++-10
-          - os: windows-2019
-            cc: msvc          
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             cc: clang
             cxx: clang++
-          - os: windows-latest
+          - os: windows-2022
             cc: msvc
       fail-fast: false
 
-    
     name: ${{ matrix.os }} - ${{ matrix.cc }}
     runs-on: ${{ matrix.os }}
 
@@ -155,7 +149,7 @@ jobs:
           cp "${{ env.ZIP_FILENAME }}" "${{ matrix.os }}_${{ matrix.cc }}_${{ env.ZIP_FILENAME }}"
 
       - name: Upload release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/action' && (startsWith(matrix.os, 'ubuntu-latest') || startsWith(matrix.os, 'windows-latest'))
+        if: ${{ github.ref == 'refs/heads/master' }}
         shell: bash
         working-directory: extension/build/package
         run: |
