@@ -149,7 +149,7 @@ jobs:
           cp "${{ env.ZIP_FILENAME }}" "${{ matrix.os }}_${{ matrix.cc }}_${{ env.ZIP_FILENAME }}"
 
       - name: Upload release
-        # if: contains(fromJson('["refs/heads/master", "refs/heads/ci-fixbonk"]'), github.ref)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         shell: bash
         working-directory: extension/build/package
         run: |
