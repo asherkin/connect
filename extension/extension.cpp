@@ -21,6 +21,7 @@
 #include "CDetour/detours.h"
 
 #include "steam/steamclientpublic.h"
+#include <string>
 
 Connect g_connect;
 
@@ -114,6 +115,17 @@ typedef void (*SetSteamIDFunc)(CBaseClient *, const CSteamID &steamID);
 typedef void (__fastcall *SetSteamIDFunc)(CBaseClient *, void *, const CSteamID &steamID);
 #endif
 
+CDetour* detourCBaseServer__ConnectClient = nullptr;
+CDetour* detourCBaseServer__RejectConnection = nullptr;
+
+bool g_bEndAuthSessionOnRejectConnection = false;
+bool g_bSuppressBeginAuthSession = false;
+CSteamID g_lastClientSteamID;
+const void* g_lastAuthTicket;
+int g_lastcbAuthTicket;
+
+char passwordBuffer[255];
+
 Steam3ServerFunc g_pSteam3ServerFunc = NULL;
 RejectConnectionFunc g_pRejectConnectionFunc = NULL;
 SetSteamIDFunc g_pSetSteamIDFunc = NULL;
@@ -155,88 +167,60 @@ class VFuncEmptyClass{};
 int g_nBeginAuthSessionOffset = 0;
 int g_nEndAuthSessionOffset = 0;
 
+SH_DECL_MANUALHOOK3(MHook_BeginAuthSession, 0, 0, 0, EBeginAuthSessionResult, const void *, int, CSteamID);
+int g_nHookIdBeginAuthSession = -1;
+
+EBeginAuthSessionResult Hook_BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
+{
+	if (!g_bSuppressBeginAuthSession)
+	{
+		RETURN_META_VALUE(MRES_IGNORED, k_EBeginAuthSessionResultOK);
+	}
+	g_bSuppressBeginAuthSession = false;
+
+	if (strcmp(steamID.Render(), g_lastClientSteamID.Render()) == 0
+	&& g_lastAuthTicket == pAuthTicket
+	&& g_lastcbAuthTicket == cbAuthTicket)
+	{
+		// Let the server know everything is fine
+		// g_pSM->LogMessage(myself, "You alright ;)");
+		RETURN_META_VALUE(MRES_SUPERCEDE, k_EBeginAuthSessionResultOK);
+	}
+
+	RETURN_META_VALUE(MRES_IGNORED, k_EBeginAuthSessionResultDuplicateRequest);
+}
+
 EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
 {
-	if (!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer || g_nBeginAuthSessionOffset == 0)
-		return k_EBeginAuthSessionResultOK;
+	if (g_nBeginAuthSessionOffset == 0)
+		return k_EBeginAuthSessionResultInvalidTicket;
 
-	void **this_ptr = *(void ***)&g_pSteam3Server->m_pSteamGameServer;
-	void **vtable = *(void ***)g_pSteam3Server->m_pSteamGameServer;
-	void *func = vtable[g_nBeginAuthSessionOffset];
+	void *func = (*(void ***)g_pSteam3Server->m_pSteamGameServer)[g_nBeginAuthSessionOffset];
 
 	union {
 		EBeginAuthSessionResult (VFuncEmptyClass::*mfpnew)(const void *, int, CSteamID);
-
-#ifndef WIN32
-		struct {
-			void *addr;
-			intptr_t adjustor;
-		} s;
+		mfpDetails mfp;
 	} u;
+	u.mfp.Init(func);
 
-	u.s.addr = func;
-	u.s.adjustor = 0;
-#else
-		void *addr;
-	} u;
-
-	u.addr = func;
-#endif
-
-	return (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(this_ptr)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
+	return (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
 }
 
 void EndAuthSession(CSteamID steamID)
 {
-	if (!g_pSteam3Server || !g_pSteam3Server->m_pSteamGameServer || g_nEndAuthSessionOffset == 0)
+	if (g_nEndAuthSessionOffset == 0)
 		return;
 
-	void **this_ptr = *(void ***)&g_pSteam3Server->m_pSteamGameServer;
-	void **vtable = *(void ***)g_pSteam3Server->m_pSteamGameServer;
-	void *func = vtable[g_nEndAuthSessionOffset];
+	void *func = (*(void ***)g_pSteam3Server->m_pSteamGameServer)[g_nEndAuthSessionOffset];
 
 	union {
 		void (VFuncEmptyClass::*mfpnew)(CSteamID);
-
-#ifndef WIN32
-		struct {
-			void *addr;
-			intptr_t adjustor;
-		} s;
+		mfpDetails mfp;
 	} u;
+	u.mfp.Init(func);
 
-	u.s.addr = func;
-	u.s.adjustor = 0;
-#else
-		void *addr;
-	} u;
-
-	u.addr = func;
-#endif
-
-	return (void)(reinterpret_cast<VFuncEmptyClass*>(this_ptr)->*u.mfpnew)(steamID);
+	return (void)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(steamID);
 }
-
-CDetour* detourCBaseServer__ConnectClient = nullptr;
-CDetour* detourCBaseServer__RejectConnection = nullptr;
-CDetour* detourCBaseServer__CheckChallengeType = nullptr;
-
-bool g_bEndAuthSessionOnRejectConnection = false;
-CSteamID g_lastClientSteamID;
-
-bool g_bSuppressCheckChallengeType = false;
-
-char passwordBuffer[255];
-
-#define DETOUR_DECL_MEMBER9(name, ret, p1type, p1name, p2type, p2name, p3type, p3name, p4type, p4name, p5type, p5name, p6type, p6name, p7type, p7name, p8type, p8name, p9type, p9name) \
-class name##Class \
-{ \
-public: \
-        ret name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name); \
-        static ret (name##Class::* name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type); \
-}; \
-ret (name##Class::* name##Class::name##_Actual)(p1type, p2type, p3type, p4type, p5type, p6type, p7type, p8type, p9type) = NULL; \
-ret name##Class::name(p1type p1name, p2type p2name, p3type p3name, p4type p4name, p5type p5name, p6type p6name, p7type p7name, p8type p8name, p9type p9name)
 
 DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
 {
@@ -264,7 +248,10 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 
 	g_bEndAuthSessionOnRejectConnection = true;
 	g_lastClientSteamID = CSteamID(ullSteamID);
+	g_lastcbAuthTicket = cbTicket;
+	g_lastAuthTicket = pvTicket;
 
+	// Validate steam ticket
 	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
 	if (result != k_EBeginAuthSessionResultOK)
 	{
@@ -291,8 +278,10 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 
 	pchPassword = passwordBuffer;
 
-	g_bSuppressCheckChallengeType = true;
-	return DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
+	g_bSuppressBeginAuthSession = true;
+	auto client = DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
+	g_bSuppressBeginAuthSession = false;
+	return client;
 }
 
 DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, int, iClientChallenge, const char *, pchReason)
@@ -304,21 +293,6 @@ DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, in
 	}
 
 	return DETOUR_MEMBER_CALL(CBaseServer__RejectConnection)(address, iClientChallenge, pchReason);
-}
-
-DETOUR_DECL_MEMBER7(CBaseServer__CheckChallengeType, bool, CBaseClient *, pClient, int, nUserID, netadr_t &, address, int, nAuthProtocol, const char *, pCookie, int, cbCookie, int, iClientChallenge)
-{
-	if (g_bSuppressCheckChallengeType)
-	{
-		g_bEndAuthSessionOnRejectConnection = false;
-
-		SetSteamID(pClient, g_lastClientSteamID);
-
-		g_bSuppressCheckChallengeType = false;
-		return true;
-	} else {
-		return DETOUR_MEMBER_CALL(CBaseServer__CheckChallengeType)(pClient, nUserID, address, nAuthProtocol, pCookie, cbCookie, iClientChallenge);
-	}
 }
 
 bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
@@ -381,6 +355,12 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 
+	if (!g_pSteam3Server->m_pSteamGameServer)
+	{
+		snprintf(error, maxlen, "Unable to get Steam Game Server.\n");
+		return false;
+	}
+
 	/*
 	META_CONPRINTF("ISteamGameServer: %p\n", g_pSteam3Server->m_pSteamGameServer);
 	META_CONPRINTF("ISteamUtils: %p\n", g_pSteam3Server->m_pSteamGameServerUtils);
@@ -394,6 +374,12 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		snprintf(error, maxlen, "Failed to find ISteamGameServer__BeginAuthSession offset.\n");
 		return false;
 	}
+	SH_MANUALHOOK_RECONFIGURE(MHook_BeginAuthSession, g_nBeginAuthSessionOffset, 0, 0);
+	if (SH_ADD_MANUALHOOK(MHook_BeginAuthSession, g_pSteam3Server->m_pSteamGameServer, SH_STATIC(Hook_BeginAuthSession), true) == 0)
+	{
+		snprintf(error, maxlen, "Failed to setup ISteamGameServer__BeginAuthSession hook.\n");
+		return false;
+	}
 
 	if (!g_pGameConf->GetOffset("ISteamGameServer__EndAuthSession", &g_nEndAuthSessionOffset) || g_nEndAuthSessionOffset == 0)
 	{
@@ -404,8 +390,20 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), g_pGameConf);
 
 	detourCBaseServer__ConnectClient = DETOUR_CREATE_MEMBER(CBaseServer__ConnectClient, "CBaseServer__ConnectClient");
+	if (detourCBaseServer__ConnectClient == nullptr)
+	{
+		snprintf(error, maxlen, "Failed to create CBaseServer__ConnectClient detour.\n");
+		return false;
+	}
+	detourCBaseServer__ConnectClient->EnableDetour();
+
 	detourCBaseServer__RejectConnection = DETOUR_CREATE_MEMBER(CBaseServer__RejectConnection, "CBaseServer__RejectConnection");
-	detourCBaseServer__CheckChallengeType = DETOUR_CREATE_MEMBER(CBaseServer__CheckChallengeType, "CBaseServer__CheckChallengeType");
+	if (detourCBaseServer__RejectConnection == nullptr)
+	{
+		snprintf(error, maxlen, "Failed to create CBaseServer__RejectConnection detour.\n");
+		return false;
+	}
+	detourCBaseServer__RejectConnection->EnableDetour();
 
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
@@ -435,15 +433,11 @@ bool Connect::SDK_OnMetamodUnload(char *error, size_t maxlen)
 		detourCBaseServer__ConnectClient->DisableDetour();
 		delete detourCBaseServer__ConnectClient;
 	}
+
 	if (detourCBaseServer__RejectConnection)
 	{
 		detourCBaseServer__RejectConnection->DisableDetour();
 		delete detourCBaseServer__RejectConnection;
-	}
-	if (detourCBaseServer__CheckChallengeType)
-	{
-		detourCBaseServer__CheckChallengeType->DisableDetour();
-		delete detourCBaseServer__CheckChallengeType;
 	}
 
 	return true;
