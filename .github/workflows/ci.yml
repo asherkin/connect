@@ -2,9 +2,9 @@ name: Extension builder
 
 on:
   push:
-    branches: [ action, master ]
+    branches: [ master ]
   pull_request:
-    branches: [ action, master ]
+    branches: [ master ]
 
 
 jobs:
@@ -149,11 +149,7 @@ jobs:
           cp "${{ env.ZIP_FILENAME }}" "${{ matrix.os }}_${{ matrix.cc }}_${{ env.ZIP_FILENAME }}"
 
       - name: Upload release
-        if:
-          contains('
-            [refs/heads/master]
-            [refs/heads/ci-fixbonk]
-          ', github.ref)
+        if: contains(fromJson('["refs/heads/master", "refs/heads/ci-fixbonk"]'), github.ref)
         shell: bash
         working-directory: extension/build/package
         run: |
