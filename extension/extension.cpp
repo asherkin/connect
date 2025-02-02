@@ -294,11 +294,11 @@ DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, in
 bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 {
 	char conf_error[255] = "";
-	if (!gameconfs->LoadGameConfigFile("connect.games", &g_pGameConf, conf_error, sizeof(conf_error)))
+	if (!gameconfs->LoadGameConfigFile("connect2.games", &g_pGameConf, conf_error, sizeof(conf_error)))
 	{
 		if (conf_error[0])
 		{
-			snprintf(error, maxlen, "Could not read connect.games.txt: %s\n", conf_error);
+			snprintf(error, maxlen, "Could not read connect2.games.txt: %s\n", conf_error);
 		}
 		return false;
 	}

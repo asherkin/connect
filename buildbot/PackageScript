@@ -40,7 +40,7 @@ for cxx_task in Extension.extensions:
   pdblog.write(cxx_task.debug.path + '\n')
 pdblog.close()
 
-CopyFiles('connect.games.txt', folders['addons/sourcemod/gamedata'])
+CopyFiles('connect2.games.txt', folders['addons/sourcemod/gamedata'])
 CopyFiles('connect.inc', folders['addons/sourcemod/scripting/include'])
 CopyFiles('connect.sp', folders['addons/sourcemod/scripting'])
 
