@@ -21,6 +21,7 @@
 #include "CDetour/detours.h"
 
 #include "steam/steamclientpublic.h"
+#include "steam/isteamclient.h"
 #include <string>
 
 Connect g_connect;
@@ -32,11 +33,37 @@ ConVar connectVersion("connect_version", SMEXT_CONF_VERSION, FCVAR_SPONLY|FCVAR_
 IGameConfig *g_pGameConf = NULL;
 
 IForward *g_pConnectForward = NULL;
+IForward *g_pOnValidateAuthTicketResponse = NULL;
 
 class IClient;
 class CBaseClient;
 
 class CBaseServer;
+
+#if SOURCE_ENGINE == SE_LEFT4DEAD || SOURCE_ENGINE == SE_LEFT4DEAD2
+// Callback values for callback ValidateAuthTicketResponse_t which is a response to BeginAuthSession
+enum EAuthSessionResponse
+{
+	k_EAuthSessionResponseOK = 0,							// Steam has verified the user is online, the ticket is valid and ticket has not been reused.
+	k_EAuthSessionResponseUserNotConnectedToSteam = 1,		// The user in question is not connected to steam
+	k_EAuthSessionResponseNoLicenseOrExpired = 2,			// The license has expired.
+	k_EAuthSessionResponseVACBanned = 3,					// The user is VAC banned for this game.
+	k_EAuthSessionResponseLoggedInElseWhere = 4,			// The user account has logged in elsewhere and the session containing the game instance has been disconnected.
+	k_EAuthSessionResponseVACCheckTimedOut = 5,				// VAC has been unable to perform anti-cheat checks on this user
+	k_EAuthSessionResponseAuthTicketCanceled = 6,			// The ticket has been canceled by the issuer
+	k_EAuthSessionResponseAuthTicketInvalidAlreadyUsed = 7,	// This ticket has already been used, it is not valid.
+	k_EAuthSessionResponseAuthTicketInvalid = 8,			// This ticket is not from a user instance currently connected to steam.
+	k_EAuthSessionResponsePublisherIssuedBan = 9,			// The user is banned for this game. The ban came via the web api and not VAC
+};
+#endif
+
+struct ValidateAuthTicketResponse_t
+{
+	enum { k_iCallback = k_iSteamUserCallbacks + 43 };
+	CSteamID m_SteamID;
+	EAuthSessionResponse m_eAuthSessionResponse;
+	CSteamID m_OwnerSteamID; // different from m_SteamID if borrowed
+};
 
 typedef enum EAuthProtocol
 {
@@ -113,6 +140,7 @@ typedef void (__fastcall *SetSteamIDFunc)(CBaseClient *, void *, const CSteamID 
 
 CDetour* detourCBaseServer__ConnectClient = nullptr;
 CDetour* detourCBaseServer__RejectConnection = nullptr;
+CDetour* detourCSteam3Server__OnValidateAuthTicketResponse = NULL;
 
 bool g_bEndAuthSessionOnRejectConnection = false;
 bool g_bSuppressBeginAuthSession = false;
@@ -216,6 +244,18 @@ void EndAuthSession(CSteamID steamID)
 	u.mfp.Init(func);
 
 	return (void)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(steamID);
+}
+
+DETOUR_DECL_MEMBER1(CSteam3Server__OnValidateAuthTicketResponse, int, ValidateAuthTicketResponse_t *, pResponse)
+{
+	g_pOnValidateAuthTicketResponse->PushString(pResponse->m_SteamID.Render());
+	g_pOnValidateAuthTicketResponse->PushCell(pResponse->m_eAuthSessionResponse);
+
+	cell_t retVal = pResponse->m_eAuthSessionResponse;
+	g_pOnValidateAuthTicketResponse->Execute(&retVal);
+	pResponse->m_eAuthSessionResponse = (EAuthSessionResponse)retVal;
+
+	return DETOUR_MEMBER_CALL(CSteam3Server__OnValidateAuthTicketResponse)(pResponse);
 }
 
 DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
@@ -401,6 +441,16 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	}
 	detourCBaseServer__RejectConnection->EnableDetour();
 
+	detourCSteam3Server__OnValidateAuthTicketResponse = DETOUR_CREATE_MEMBER(CSteam3Server__OnValidateAuthTicketResponse, "CSteam3Server__OnValidateAuthTicketResponse");
+	if(!detourCSteam3Server__OnValidateAuthTicketResponse)
+	{
+		snprintf(error, maxlen, "Failed to detour CSteam3Server__OnValidateAuthTicketResponse.\n");
+		return false;
+	}
+	detourCSteam3Server__OnValidateAuthTicketResponse->EnableDetour();
+
+	g_pOnValidateAuthTicketResponse = g_pForwards->CreateForward("OnValidateAuthTicketResponse", ET_Ignore, 2, NULL, Param_String, Param_Cell);
+
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
 	return true;
@@ -418,6 +468,7 @@ bool Connect::SDK_OnMetamodLoad(ISmmAPI *ismm, char *error, size_t maxlen, bool 
 void Connect::SDK_OnUnload() 
 {
 	g_pForwards->ReleaseForward(g_pConnectForward);
+	g_pForwards->ReleaseForward(g_pOnValidateAuthTicketResponse);
 
 	gameconfs->CloseGameConfigFile(g_pGameConf);
 }
@@ -436,6 +487,12 @@ bool Connect::SDK_OnMetamodUnload(char *error, size_t maxlen)
 		delete detourCBaseServer__RejectConnection;
 	}
 
+	if (detourCSteam3Server__OnValidateAuthTicketResponse)
+	{
+		detourCSteam3Server__OnValidateAuthTicketResponse->Destroy();
+		detourCSteam3Server__OnValidateAuthTicketResponse = NULL;
+	}
+
 	return true;
 }
 
@@ -444,4 +501,42 @@ bool Connect::RegisterConCommandBase(ConCommandBase *pCommand)
 	META_REGCVAR(pCommand);
 
 	return true;
+}
+
+cell_t ValidateAuthTicketResponse(IPluginContext *pContext, const cell_t *params)
+{
+	char *pSteamID;
+	pContext->LocalToString(params[1], &pSteamID);
+
+	cell_t retVal = params[2];
+
+	char *pOwnerSteamID;
+	pContext->LocalToString(params[3], &pOwnerSteamID);
+
+	uint64 ullSteamID = strtoull(pSteamID, NULL, 10);
+	uint64 ullOwnerSteamID = strtoull(pOwnerSteamID, NULL, 10);
+
+	CSteamID steamID = CSteamID(ullSteamID);
+	CSteamID ownerSteamID = CSteamID(ullOwnerSteamID);
+
+	g_pSM->LogMessage(myself, "ValidateAuthTicketResponse %s %s %s %s", pSteamID, pOwnerSteamID, steamID.Render(), ownerSteamID.Render());
+
+	ValidateAuthTicketResponse_t response;
+	response.m_SteamID = steamID;
+	response.m_eAuthSessionResponse = (EAuthSessionResponse)retVal;
+	response.m_OwnerSteamID = ownerSteamID;
+	DETOUR_MEMBER_MCALL_CALLBACK(CSteam3Server__OnValidateAuthTicketResponse, g_pSteam3Server)(&response);
+
+	return 0;
+}
+
+const sp_nativeinfo_t myNatives[] =
+{
+	{ "ValidateAuthTicketResponse", ValidateAuthTicketResponse },
+	{ NULL, NULL }
+};
+
+void Connect::SDK_OnAllLoaded()
+{
+	sharesys->AddNatives(myself, myNatives);
 }
