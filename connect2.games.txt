@@ -86,6 +86,12 @@
 				"library"       "engine"
 				"windows"       "\xE8\x2A\x2A\x2A\x2A\x83\x78\x04\x00\x74\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x48\x04\x8B\x01\x8B\x40\x2C\xFF\xD0\x84\xC0\x74\x2A\x56"
 			}
+
+			"CSteam3Server__OnValidateAuthTicketResponse"
+			{
+				"library"		"engine"
+				"linux"			"@_ZN13CSteam3Server28OnValidateAuthTicketResponseEP28ValidateAuthTicketResponse_t"
+			}
 		}
 	}
 
