@@ -78,9 +78,9 @@ const char *CSteamID::Render() const
 {
 	static char szSteamID[64];
 #if SOURCE_ENGINE < SE_SDK2013 || SOURCE_ENGINE == SE_TF2 || SOURCE_ENGINE == SE_LEFT4DEAD || SOURCE_ENGINE == SE_LEFT4DEAD2
-	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_0:%u:%u", (m_unAccountID % 2) ? 1 : 0, (int32)m_unAccountID/2);
+	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_0:%u:%u", this->GetAccountID() & 1, this->GetAccountID() >> 1);
 #else
-	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_0:%u:%u", (m_steamid.m_comp.m_unAccountID % 2) ? 1 : 0, (int32)m_steamid.m_comp.m_unAccountID/2);
+	V_snprintf(szSteamID, sizeof(szSteamID), "STEAM_0:%u:%u", m_steamid.m_comp.m_unAccountID & 1, m_steamid.m_comp.m_unAccountID >> 1);
 #endif
 	return szSteamID;
 }
