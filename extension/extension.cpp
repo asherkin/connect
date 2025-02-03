@@ -34,6 +34,7 @@ IGameConfig *g_pGameConf = NULL;
 
 IForward *g_pConnectForward = NULL;
 IForward *g_pOnValidateAuthTicketResponse = NULL;
+IForward *g_pOnBeginAuthSessionResult = NULL;
 
 class IClient;
 class CBaseClient;
@@ -227,7 +228,16 @@ EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTick
 	} u;
 	u.mfp.Init(func);
 
-	return (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
+	EBeginAuthSessionResult result = (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
+
+	g_pOnBeginAuthSessionResult->PushString(steamID.Render());
+	g_pOnBeginAuthSessionResult->PushCell(result);
+
+	cell_t retVal = result;
+	g_pOnBeginAuthSessionResult->Execute(&retVal);
+	result = (EBeginAuthSessionResult)retVal;
+
+	return result;
 }
 
 void EndAuthSession(CSteamID steamID)
@@ -451,6 +461,8 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 
 	g_pOnValidateAuthTicketResponse = g_pForwards->CreateForward("OnValidateAuthTicketResponse", ET_Ignore, 2, NULL, Param_String, Param_Cell);
 
+	g_pOnBeginAuthSessionResult = g_pForwards->CreateForward("OnBeginAuthSessionResult", ET_Ignore, 2, NULL, Param_String, Param_Cell);
+
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
 	return true;
@@ -465,10 +477,11 @@ bool Connect::SDK_OnMetamodLoad(ISmmAPI *ismm, char *error, size_t maxlen, bool 
 	return true;
 }
 
-void Connect::SDK_OnUnload() 
+void Connect::SDK_OnUnload()
 {
 	g_pForwards->ReleaseForward(g_pConnectForward);
 	g_pForwards->ReleaseForward(g_pOnValidateAuthTicketResponse);
+	g_pForwards->ReleaseForward(g_pOnBeginAuthSessionResult);
 
 	gameconfs->CloseGameConfigFile(g_pGameConf);
 }
@@ -501,4 +514,42 @@ bool Connect::RegisterConCommandBase(ConCommandBase *pCommand)
 	META_REGCVAR(pCommand);
 
 	return true;
+}
+
+cell_t ValidateAuthTicketResponse(IPluginContext *pContext, const cell_t *params)
+{
+	char *pSteamID;
+	pContext->LocalToString(params[1], &pSteamID);
+
+	cell_t retVal = params[2];
+
+	char *pOwnerSteamID;
+	pContext->LocalToString(params[3], &pOwnerSteamID);
+
+	uint64 ullSteamID = strtoull(pSteamID, NULL, 10);
+	uint64 ullOwnerSteamID = strtoull(pOwnerSteamID, NULL, 10);
+
+	CSteamID steamID = CSteamID(ullSteamID);
+	CSteamID ownerSteamID = CSteamID(ullOwnerSteamID);
+
+	g_pSM->LogMessage(myself, "ValidateAuthTicketResponse %s %s %s %s", pSteamID, pOwnerSteamID, steamID.Render(), ownerSteamID.Render());
+
+	ValidateAuthTicketResponse_t response;
+	response.m_SteamID = steamID;
+	response.m_eAuthSessionResponse = (EAuthSessionResponse)retVal;
+	response.m_OwnerSteamID = ownerSteamID;
+	DETOUR_MEMBER_MCALL_CALLBACK(CSteam3Server__OnValidateAuthTicketResponse, g_pSteam3Server)(&response);
+
+	return 0;
+}
+
+const sp_nativeinfo_t myNatives[] =
+{
+	{ "ValidateAuthTicketResponse", ValidateAuthTicketResponse },
+	{ NULL, NULL }
+};
+
+void Connect::SDK_OnAllLoaded()
+{
+	sharesys->AddNatives(myself, myNatives);
 }

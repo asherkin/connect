@@ -21,6 +21,16 @@ enum EAuthSessionResponse
 	k_EAuthSessionResponsePublisherIssuedBan = 9,            // The user is banned for this game via web API
 };
 
+enum EBeginAuthSessionResult
+{
+	k_EBeginAuthSessionResultOK = 0,				// Ticket is valid for this game and this steamID.
+	k_EBeginAuthSessionResultInvalidTicket = 1,		// Ticket is not valid.
+	k_EBeginAuthSessionResultDuplicateRequest = 2,	// A ticket has already been submitted for this steamID
+	k_EBeginAuthSessionResultInvalidVersion = 3,	// Ticket is from an incompatible interface version
+	k_EBeginAuthSessionResultGameMismatch = 4,		// Ticket is not for this game
+	k_EBeginAuthSessionResultExpiredTicket = 5,		// Ticket has expired
+};
+
 /**
  * Called when Steam responds to an authentication ticket validation request.
  *
@@ -29,6 +39,15 @@ enum EAuthSessionResponse
  * @return                                Change authentication session response
  */
 forward EAuthSessionResponse OnValidateAuthTicketResponse(const char[] steamID, EAuthSessionResponse eAuthSessionResponse);
+
+/**
+ * Called when a response to a begin authentication session request is returned
+ *
+ * @param steamID                         Client's Steam ID in STEAM_X:Y:Z format
+ * @param eBeginAuthSessionResult         The result code
+ * @return                                Change begin authentication session result
+ */
+forward EBeginAuthSessionResult OnBeginAuthSessionResult(const char[] steamID, EBeginAuthSessionResult eBeginAuthSessionResult);
 
 /**
  * Called when a client attempts to connect to the server.
@@ -41,6 +60,16 @@ forward EAuthSessionResponse OnValidateAuthTicketResponse(const char[] steamID, 
  * @return               Allow or reject player connection
  */
 forward bool OnClientPreConnectEx(const char[] name, char password[255], const char[] ip, const char[] steamID, char rejectReason[255]);
+
+/**
+ * Call to trigger the validate auth ticket response chain
+ *
+ * @param steamID               Client's Steam ID64
+ * @param ownerSteamID          Client's owner Steam ID64
+ * @param eAuthSessionResponse  The response code from Steam
+ * @return
+ */
+native void ValidateAuthTicketResponse(const char[] steamID, EAuthSessionResponse eAuthSessionResponse, const char[] ownerSteamID);
 
 public Extension __ext_Connect = 
 {
@@ -57,3 +86,10 @@ public Extension __ext_Connect =
 	required = 0,
 #endif
 }
+
+#if !defined REQUIRE_EXTENSIONS
+public void __ext_connect_SetNTVOptional()
+{
+	MarkNativeAsOptional("ValidateAuthTicketResponse");
+}
+#endif
