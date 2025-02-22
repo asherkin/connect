@@ -7,14 +7,6 @@ project = builder.LibraryProject(projectname + '.ext')
 project.sources = [
   'extension.cpp',
   os.path.join(Extension.sm_root, 'public', 'smsdk_ext.cpp'),
-  os.path.join(Extension.sm_root, 'public', 'CDetour', 'detours.cpp'),
-  os.path.join(Extension.sm_root, 'public', 'asm', 'asm.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'decode.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'itab.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn-att.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn-intel.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'udis86.c')
 ]
 
 for sdk_name in Extension.sdks:
@@ -25,5 +17,6 @@ for sdk_name in Extension.sdks:
       continue
   
     binary = Extension.HL2ExtConfig(project, builder, cxx, projectname + '.ext.' + sdk.ext, sdk)
+    Extension.AddCDetour(binary)
 
 Extension.extensions = builder.Add(project)

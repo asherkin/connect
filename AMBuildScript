@@ -1,7 +1,5 @@
 # vim: set sts=2 ts=8 sw=2 tw=99 et ft=python:
-import os, sys
-
-# Simple extensions do not need to modify this file.
+import os, sys, shutil
 
 class SDK(object):
   def __init__(self, sdk, ext, aDef, name, platform, dir):
@@ -29,6 +27,18 @@ class SDK(object):
     return False
 
 WinLinux = ['windows', 'linux']
+CSS = {
+  'windows': ['x86', 'x86_64'],
+  'linux': ['x86', 'x86_64']
+}
+HL2DM = {
+  'windows': ['x86', 'x86_64'],
+  'linux': ['x86', 'x86_64']
+}
+DODS = {
+  'windows': ['x86', 'x86_64'],
+  'linux': ['x86', 'x86_64']
+}
 TF2 = {
   'windows': ['x86', 'x86_64'],
   'linux': ['x86', 'x86_64']
@@ -44,9 +54,9 @@ PossibleSDKs = {
 #  'orangebox':  SDK('HL2SDKOB', '2.ep2', '3', 'ORANGEBOX', WinLinux, 'orangebox'),
 #  'bgt':  SDK('HL2SDK-BGT', '2.bgt', '4', 'BLOODYGOODTIME', WinOnly, 'bgt'),
 #  'eye':  SDK('HL2SDK-EYE', '2.eye', '5', 'EYE', WinOnly, 'eye'),
-  'css':  SDK('HL2SDKCSS', '2.css', '6', 'CSS', WinLinux, 'css'),
-  'hl2dm':  SDK('HL2SDKHL2DM', '2.hl2dm', '7', 'HL2DM', WinLinux, 'hl2dm'),
-  'dods': SDK('HL2SDKDODS', '2.dods', '8', 'DODS', WinLinux, 'dods'),
+  'css':  SDK('HL2SDKCSS', '2.css', '6', 'CSS', CSS, 'css'),
+  'hl2dm':  SDK('HL2SDKHL2DM', '2.hl2dm', '7', 'HL2DM', HL2DM, 'hl2dm'),
+  'dods': SDK('HL2SDKDODS', '2.dods', '8', 'DODS', DODS, 'dods'),
   'sdk2013': SDK('HL2SDK2013', '2.sdk2013', '9', 'SDK2013', WinLinux, 'sdk2013'),
 #  'bms':  SDK('HL2SDKBMS', '2.bms', '11', 'BMS', WinLinux, 'bms'),
   'tf2':  SDK('HL2SDKTF2', '2.tf2', '12', 'TF2', TF2, 'tf2'),
@@ -96,11 +106,11 @@ class ExtensionConfig(object):
     self.binaries = []
     self.extensions = []
     self.generated_headers = None
-    self.productVersion = None
     self.mms_root = None
     self.sm_root = None
     self.all_targets = []
     self.target_archs = set()
+    self.libsafetyhook = {}
 
     if builder.options.targets:
       target_archs = builder.options.targets.split(',')
@@ -164,6 +174,7 @@ class ExtensionConfig(object):
 
   def detectSDKs(self):
     sdk_list = builder.options.sdks.split(' ')
+    use_none = sdk_list[0] == 'none'
     use_all = sdk_list[0] == 'all'
     use_present = sdk_list[0] == 'present'
 
@@ -171,7 +182,7 @@ class ExtensionConfig(object):
       sdk = PossibleSDKs[sdk_name]
       if sdk.shouldBuild(self.all_targets):
         if builder.options.hl2sdk_root:
-          sdk_path = os.path.join(os.path.realpath(builder.options.hl2sdk_root), sdk.folder)
+          sdk_path = os.path.join(builder.options.hl2sdk_root, sdk.folder)
         else:
           sdk_path = ResolveEnvPath(sdk.envvar, sdk.folder)
         if sdk_path is None or not os.path.isdir(sdk_path):
@@ -182,13 +193,15 @@ class ExtensionConfig(object):
           sdk.path = Normalize(sdk_path)
           self.sdks[sdk_name] = sdk
 
-    if len(self.sdks) < 1:
-      raise Exception('At least one SDK must be available.')
+    if len(self.sdks) < 1 and len(sdk_list) and not use_none:
+      raise Exception('No applicable SDKs were found, nothing to do')
 
     if builder.options.sm_path:
       self.sm_root = os.path.realpath(builder.options.sm_path)
     else:
-      self.sm_root = ResolveEnvPath('SOURCEMOD', 'sourcemod')
+      self.sm_root = ResolveEnvPath('SOURCEMOD112', 'sourcemod-1.12')
+      if not self.sm_root:
+        self.sm_root = ResolveEnvPath('SOURCEMOD', 'sourcemod')
       if not self.sm_root:
         self.sm_root = ResolveEnvPath('SOURCEMOD_DEV', 'sourcemod-central')
 
@@ -199,7 +212,7 @@ class ExtensionConfig(object):
     if builder.options.mms_path:
       self.mms_root = builder.options.mms_path
     else:
-      self.mms_root = ResolveEnvPath('MMSOURCE110', 'mmsource-1.10')
+      self.mms_root = ResolveEnvPath('MMSOURCE112', 'mmsource-1.12')
       if not self.mms_root:
         self.mms_root = ResolveEnvPath('MMSOURCE', 'metamod-source')
       if not self.mms_root:
@@ -210,30 +223,28 @@ class ExtensionConfig(object):
     self.mms_root = Normalize(self.mms_root)
 
   def configure(self):
-
     if not set(self.target_archs).issubset(['x86', 'x86_64']):
       raise Exception('Unknown target architecture: {0}'.format(self.target_archs))
 
     for cxx in self.all_targets:
         self.configure_cxx(cxx)
-    
+
   def configure_cxx(self, cxx):
     if cxx.family == 'msvc':
-      if cxx.version < 1900:
-        raise Exception('Only MSVC 2015 and later are supported, c++14 support is required.')
-    if cxx.family == 'gcc':
-      if cxx.version < 'gcc-4.9':
-        raise Exception('Only GCC versions 4.9 or greater are supported, c++14 support is required.')
-    if cxx.family == 'clang':
-      if cxx.version < 'clang-3.4':
-        raise Exception('Only clang versions 3.4 or greater are supported, c++14 support is required.')
+      if cxx.version < 1914 and builder.options.generator != 'vs':
+        raise Exception(f'Only MSVC 2017 15.7 and later are supported, full C++17 support is required. ({str(cxx.version)} < 1914)')
+    elif cxx.family == 'gcc':
+      if cxx.version < 'gcc-9':
+        raise Exception('Only GCC versions 9 or later are supported, full C++17 support is required.')
+    elif cxx.family == 'clang':
+      if cxx.version < 'clang-5':
+        raise Exception('Only clang versions 5 or later are supported, full C++17 support is required.')
 
     if cxx.like('gcc'):
       self.configure_gcc(cxx)
     elif cxx.family == 'msvc':
       self.configure_msvc(cxx)
-    cxx.defines += ['HAVE_STRING_H']
-    
+
     # Optimizaiton
     if builder.options.opt == '1':
       cxx.defines += ['NDEBUG']
@@ -266,7 +277,6 @@ class ExtensionConfig(object):
       '_stricmp=strcasecmp',
       '_snprintf=snprintf',
       '_vsnprintf=vsnprintf',
-      'typeof=__typeof__',
       'HAVE_STDINT_H',
       'GNUC',
     ]
@@ -274,23 +284,27 @@ class ExtensionConfig(object):
       '-pipe',
       '-fno-strict-aliasing',
       '-Wall',
+      '-Werror',
       '-Wno-unused',
       '-Wno-switch',
       '-Wno-array-bounds',
       '-msse',
+      '-Wno-unknown-pragmas',
+      '-Wno-dangling-else',
       '-fvisibility=hidden',
     ]
+
     cxx.cxxflags += [
-      '-std=c++14',
+      '-std=c++17',
       '-fno-threadsafe-statics',
       '-Wno-non-virtual-dtor',
       '-Wno-overloaded-virtual',
+      '-Wno-register',
       '-fvisibility-inlines-hidden',
-      '-fpermissive'
     ]
 
-    have_gcc = cxx.vendor == 'gcc'
-    have_clang = cxx.vendor == 'clang'
+    have_gcc = cxx.family == 'gcc'
+    have_clang = cxx.family == 'clang'
     if cxx.version >= 'clang-3.9' or cxx.version == 'clang-3.4' or cxx.version > 'apple-clang-6.0':
       cxx.cxxflags += ['-Wno-expansion-to-defined']
     if cxx.version == 'clang-3.9' or cxx.version == 'apple-clang-8.0':
@@ -307,7 +321,6 @@ class ExtensionConfig(object):
       cxx.cflags += ['-Wno-unused-result']
     if cxx.version >= 'gcc-9.0':
       cxx.cxxflags += ['-Wno-class-memaccess', '-Wno-packed-not-aligned']
-
     if have_clang:
       cxx.cxxflags += ['-Wno-implicit-exception-spec-mismatch']
       if cxx.version >= 'apple-clang-5.1' or cxx.version >= 'clang-3.4':
@@ -317,11 +330,15 @@ class ExtensionConfig(object):
       cxx.cflags += ['-Wno-sometimes-uninitialized']
 
     # Work around SDK warnings.
-    if cxx.version >= 'clang-10.0':
-      cxx.cflags += ['-Wno-implicit-int-float-conversion', '-Wno-tautological-overlap-compare']
+    if cxx.version >= 'clang-10.0' or cxx.version >= 'apple-clang-12.0':
+      cxx.cflags += [
+        '-Wno-implicit-int-float-conversion',
+        '-Wno-tautological-overlap-compare',
+      ]
 
     if have_gcc:
       cxx.cflags += ['-mfpmath=sse']
+      cxx.cflags += ['-Wno-maybe-uninitialized']
 
     if builder.options.opt == '1':
       cxx.cflags += ['-O3']
@@ -343,7 +360,9 @@ class ExtensionConfig(object):
     ]
     cxx.cxxflags += [
       '/EHsc',
+      '/GR-',
       '/TP',
+      '/std:c++17',
     ]
     cxx.linkflags += [
       'kernel32.lib',
@@ -372,24 +391,22 @@ class ExtensionConfig(object):
     cxx.cflags += ['/Oy-']
 
   def configure_linux(self, cxx):
-    cxx.defines += ['_LINUX', 'POSIX']
-    cxx.linkflags += ['-Wl,--exclude-libs,ALL', '-lm']
-    if cxx.vendor == 'gcc':
+    cxx.defines += ['LINUX', '_LINUX', 'POSIX', '_FILE_OFFSET_BITS=64']
+    cxx.linkflags += ['-lm']
+    if cxx.family == 'gcc':
       cxx.linkflags += ['-static-libgcc']
-    elif cxx.vendor == 'clang':
+    elif cxx.family == 'clang':
       cxx.linkflags += ['-lgcc_eh']
-    cxx.linkflags += ['-static-libstdc++']
 
   def configure_mac(self, cxx):
-    cxx.defines += ['OSX', '_OSX', 'POSIX']
+    cxx.defines += ['OSX', '_OSX', 'POSIX', 'KE_ABSOLUTELY_NO_STL']
     cxx.cflags += ['-mmacosx-version-min=10.7']
     cxx.linkflags += [
       '-mmacosx-version-min=10.7',
-      '-arch', 'i386',
-      '-lstdc++',
-      '-stdlib=libstdc++',
+      '-stdlib=libc++',
+      '-lc++',
     ]
-    cxx.cxxflags += ['-stdlib=libstdc++']
+    cxx.cxxflags += ['-stdlib=libc++']
 
   def configure_windows(self, cxx):
     cxx.defines += ['WIN32', '_WINDOWS']
@@ -438,7 +455,7 @@ class ExtensionConfig(object):
 
     compiler.defines += ['SOURCE_ENGINE=' + sdk.code]
 
-    if sdk.name in ['sdk2013', 'bms'] and compiler.like('gcc'):
+    if sdk.name in ['sdk2013', 'bms', 'css', 'tf2', 'dods', 'hl2dm'] and compiler.like('gcc'):
       # The 2013 SDK already has these in public/tier0/basetypes.h
       compiler.defines.remove('stricmp=strcasecmp')
       compiler.defines.remove('_stricmp=strcasecmp')
@@ -469,7 +486,6 @@ class ExtensionConfig(object):
 
     if compiler.target.platform == 'linux':
       if sdk.name in ['csgo', 'blade']:
-        compiler.linkflags.remove('-static-libstdc++')
         compiler.defines += ['_GLIBCXX_USE_CXX11_ABI=0']
 
     for path in paths:
@@ -481,9 +497,15 @@ class ExtensionConfig(object):
       elif sdk.name in ['sdk2013', 'bms']:
         lib_folder = os.path.join(sdk.path, 'lib', 'public', 'linux32')
       elif compiler.target.arch == 'x86_64':
-        lib_folder = os.path.join(sdk.path, 'lib', 'linux64')
+        if sdk.name in ['css', 'hl2dm', 'dods', 'tf2']:
+          lib_folder = os.path.join(sdk.path, 'lib', 'public', 'linux64')
+        else:
+          lib_folder = os.path.join(sdk.path, 'lib', 'linux64')
       else:
-        lib_folder = os.path.join(sdk.path, 'lib', 'linux')
+        if sdk.name in ['css', 'hl2dm', 'dods', 'tf2']:
+          lib_folder = os.path.join(sdk.path, 'lib', 'public', 'linux')
+        else:
+          lib_folder = os.path.join(sdk.path, 'lib', 'linux')
     elif compiler.target.platform == 'mac':
       if sdk.name in ['sdk2013', 'bms']:
         lib_folder = os.path.join(sdk.path, 'lib', 'public', 'osx32')
@@ -514,7 +536,7 @@ class ExtensionConfig(object):
     if compiler.target.platform == 'linux':
       if sdk.name in ['css', 'hl2dm', 'dods', 'tf2', 'sdk2013', 'bms', 'nucleardawn', 'l4d2', 'insurgency', 'doi']:
         dynamic_libs = ['libtier0_srv.so', 'libvstdlib_srv.so']
-      elif compiler.target.arch == 'x86_64' and sdk.name in ['csgo', 'mock']:
+      elif compiler.target.arch == 'x86_64' and sdk.name in ['csgo', 'blade']:
         dynamic_libs = ['libtier0_client.so', 'libvstdlib_client.so']
       elif sdk.name in ['l4d', 'blade', 'insurgency', 'doi', 'csgo']:
         dynamic_libs = ['libtier0.so', 'libvstdlib.so']
@@ -529,9 +551,15 @@ class ExtensionConfig(object):
         libs.append('interfaces')
       for lib in libs:
         if compiler.target.arch == 'x86':
-          lib_path = os.path.join(sdk.path, 'lib', 'public', lib) + '.lib'
+          if sdk.name in ['css', 'hl2dm', 'dods', 'tf2']:
+            lib_path = os.path.join(sdk.path, 'lib', 'public', 'x86', lib) + '.lib'
+          else:
+            lib_path = os.path.join(sdk.path, 'lib', 'public', lib) + '.lib'
         elif compiler.target.arch == 'x86_64':
-          lib_path = os.path.join(sdk.path, 'lib', 'public', 'win64', lib) + '.lib'
+          if sdk.name in ['css', 'hl2dm', 'dods', 'tf2']:
+            lib_path = os.path.join(sdk.path, 'lib', 'public', 'x64', lib) + '.lib'
+          else:
+            lib_path = os.path.join(sdk.path, 'lib', 'public', 'win64', lib) + '.lib'
         compiler.linkflags.append(lib_path)
 
     for library in dynamic_libs:
@@ -547,6 +575,36 @@ class ExtensionConfig(object):
 
     return binary
 
+  def AddCDetour(self, binary):
+    sm_public_path = os.path.join(self.sm_root, 'public')
+    
+    if os.path.exists(os.path.join(sm_public_path, 'safetyhook')):
+      binary.sources += [ os.path.join(sm_public_path, 'CDetour', 'detours.cpp') ]
+      binary.compiler.cxxincludes += [ os.path.join(builder.sourcePath, 'safetyhook', 'include') ]
+
+      for task in self.libsafetyhook:
+        if task.target.arch == binary.compiler.target.arch:
+          binary.compiler.linkflags += [task.binary]
+          return
+      raise Exception('No suitable build of safetyhook was found.')
+    else:
+      binary.sources += [
+        os.path.join(sm_public_path, 'CDetour', 'detours.cpp'),
+        os.path.join(sm_public_path, 'asm', 'asm.c'),
+      ]
+      # sm1.10+
+      libudis_folder = os.path.join(sm_public_path, 'libudis86')
+      if os.path.isdir(libudis_folder):
+        binary.compiler.defines += ['HAVE_STRING_H']
+        binary.sources += [
+          os.path.join(libudis_folder, 'decode.c'),
+          os.path.join(libudis_folder, 'itab.c'),
+          os.path.join(libudis_folder, 'syn-att.c'),
+          os.path.join(libudis_folder, 'syn-intel.c'),
+          os.path.join(libudis_folder, 'syn.c'),
+          os.path.join(libudis_folder, 'udis86.c'),
+        ]
+
   def HL2Config(self, project, context, compiler, name, sdk):
     binary = project.Configure(compiler, name,
                                '{0} - {1} {2}'.format(self.tag, sdk.name, compiler.target.arch))
@@ -561,6 +619,16 @@ class ExtensionConfig(object):
     self.ConfigureForExtension(context, binary.compiler)
     return binary
 
+class SafetyHookShim(object):
+  def __init__(self):
+    self.all_targets = {}
+    self.libsafetyhook = {}
+
+if getattr(builder, 'target', None) is not None:
+    sys.stderr.write("Your output folder was configured for AMBuild 2.1.\n")
+    sys.stderr.write("Please remove your output folder and reconfigure to continue.\n")
+    os._exit(1)
+
 Extension = ExtensionConfig()
 Extension.detectProductVersion()
 Extension.detectSDKs()
@@ -569,7 +637,20 @@ Extension.configure()
 if Extension.use_auto_versioning():
   Extension.generated_headers = builder.Build('buildbot/Versioning')
 
+if os.path.exists(os.path.join(Extension.sm_root, 'public', 'safetyhook')):
+    # we need to pull safetyhook in locally because ambuild does not take kindly to outside relpaths
+    safetyhook_dest = Normalize(builder.sourcePath + '/safetyhook/')
+    shutil.copytree(os.path.join(Extension.sm_root, 'public', 'safetyhook'), safetyhook_dest, dirs_exist_ok=True)
+
+    SafetyHook = SafetyHookShim()
+    SafetyHook.all_targets = Extension.all_targets
+    builder.Build('safetyhook/AMBuilder', {'SafetyHook': SafetyHook })
+    Extension.libsafetyhook = SafetyHook.libsafetyhook
+
+# This will clone the list and each cxx object as we recurse, preventing child
+# scripts from messing up global state.
 builder.targets = builder.CloneableList(Extension.all_targets)
+
 # Add additional buildscripts here
 BuildScripts = [
   'extension/AMBuilder',
@@ -577,4 +658,4 @@ BuildScripts = [
   'buildbot/BreakpadSymbols'
 ]
 
-builder.Build(BuildScripts, {'Extension': Extension})
+builder.Build(BuildScripts, { 'Extension': Extension })

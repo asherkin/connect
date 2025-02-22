@@ -26,8 +26,8 @@ jobs:
     env:
       PROJECT: 'connect'
       SDKS: 'css hl2dm dods tf2'
-      MMSOURCE_VERSION: '1.10'
-      SOURCEMOD_VERSION: '1.11'
+      MMSOURCE_VERSION: '1.12'
+      SOURCEMOD_VERSION: '1.12'
       CACHE_PATH: ${{ github.workspace }}/cache
     steps:
       - name: Concatenate SDK Names
