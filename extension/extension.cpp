@@ -21,6 +21,8 @@
 #include "CDetour/detours.h"
 
 #include "steam/steamclientpublic.h"
+#include "tier1/netadr.h"
+#include "inetchannel.h"
 #include <string>
 
 Connect g_connect;
@@ -37,6 +39,23 @@ class IClient;
 class CBaseClient;
 
 class CBaseServer;
+
+#define CONNECTIONLESS_HEADER	0xFFFFFFFF
+#define S2C_CONNREJECT			'9'
+#define MAX_ROUTABLE_PAYLOAD	1260
+
+enum
+{
+	NS_CLIENT = 0,
+	NS_SERVER,
+	NS_HLTV,
+	NS_MATCHMAKING,
+	NS_SYSTEMLINK,
+#ifdef LINUX
+	NS_SVLAN,
+#endif
+	MAX_SOCKETS
+};
 
 typedef enum EAuthProtocol
 {
@@ -56,23 +75,6 @@ typedef enum EBeginAuthSessionResult
 	k_EBeginAuthSessionResultExpiredTicket = 5,		// Ticket has expired
 } EBeginAuthSessionResult;
 #endif
-
-typedef struct netadr_s
-{
-private:
-	typedef enum
-	{ 
-		NA_NULL = 0,
-		NA_LOOPBACK,
-		NA_BROADCAST,
-		NA_IP,
-	} netadrtype_t;
-
-public:
-	netadrtype_t	type;
-	unsigned char	ip[4];
-	unsigned short	port;
-} netadr_t;
 
 const char *CSteamID::Render() const
 {
@@ -111,6 +113,18 @@ typedef void (*SetSteamIDFunc)(CBaseClient *, const CSteamID &steamID);
 typedef void (__fastcall *SetSteamIDFunc)(CBaseClient *, void *, const CSteamID &steamID);
 #endif
 
+#ifndef WIN32
+typedef int (*NET_SendPacketFunc)(INetChannel * chan, int sock, const netadr_t & to, const unsigned char * data, int length, bf_write * pVoicePayload, bool bUseCompression);
+#else
+typedef int (__fastcall *NET_SendPacketFunc)(INetChannel * chan, int sock, const netadr_t & to, const unsigned char * data, int length, bf_write * pVoicePayload, bool bUseCompression);
+#endif
+
+#ifndef WIN32
+typedef void (*NET_CheckCleanupFakeIPConnectionFunc)(int iClientChallenge, const netadr_t & address);
+#else
+typedef void (__fastcall *NET_CheckCleanupFakeIPConnectionFunc)(int iClientChallenge, const netadr_t & address);
+#endif
+
 CDetour* detourCBaseServer__ConnectClient = nullptr;
 CDetour* detourCBaseServer__RejectConnection = nullptr;
 
@@ -125,6 +139,10 @@ char passwordBuffer[255];
 Steam3ServerFunc g_pSteam3ServerFunc = NULL;
 RejectConnectionFunc g_pRejectConnectionFunc = NULL;
 SetSteamIDFunc g_pSetSteamIDFunc = NULL;
+#if SOURCE_ENGINE != SE_LEFT4DEAD && SOURCE_ENGINE != SE_LEFT4DEAD2
+NET_SendPacketFunc g_pNET_SendPacketFunc = NULL;
+NET_CheckCleanupFakeIPConnectionFunc g_pNET_CheckCleanupFakeIPConnectionFunc = NULL;
+#endif
 
 CSteam3Server *Steam3Server()
 {
@@ -288,7 +306,21 @@ DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, in
 		g_bEndAuthSessionOnRejectConnection = false;
 	}
 
-	return DETOUR_MEMBER_CALL(CBaseServer__RejectConnection)(address, iClientChallenge, pchReason);
+#if SOURCE_ENGINE == SE_LEFT4DEAD || SOURCE_ENGINE == SE_LEFT4DEAD2
+	DETOUR_MEMBER_CALL(CBaseServer__RejectConnection)(address, iClientChallenge, pchReason);
+#else
+	ALIGN4 char	msg_buffer[MAX_ROUTABLE_PAYLOAD] ALIGN4_POST;
+	bf_write	msg(msg_buffer, sizeof(msg_buffer));
+
+	msg.WriteLong(CONNECTIONLESS_HEADER);
+	msg.WriteByte(S2C_CONNREJECT);
+	msg.WriteLong(iClientChallenge);
+	msg.WriteString(pchReason);
+
+	g_pNET_SendPacketFunc(NULL, NS_SERVER, address, msg.GetData(), msg.GetNumBytesWritten(), NULL, false);
+	g_pNET_CheckCleanupFakeIPConnectionFunc(NS_SERVER, address);
+#endif
+	return;
 }
 
 bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
@@ -308,6 +340,20 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		snprintf(error, maxlen, "Failed to find CBaseServer__RejectConnection function.\n");
 		return false;
 	}
+
+#if SOURCE_ENGINE != SE_LEFT4DEAD && SOURCE_ENGINE != SE_LEFT4DEAD2
+	if (!g_pGameConf->GetMemSig("NET_SendPacket", (void **)(&g_pNET_SendPacketFunc)) || !g_pNET_SendPacketFunc)
+	{
+		snprintf(error, maxlen, "Failed to find NET_SendPacket function.\n");
+		return false;
+	}
+
+	if (!g_pGameConf->GetMemSig("NET_CheckCleanupFakeIPConnection", (void **)(&g_pNET_CheckCleanupFakeIPConnectionFunc)) || !g_pNET_CheckCleanupFakeIPConnectionFunc)
+	{
+		snprintf(error, maxlen, "Failed to find NET_CheckCleanupFakeIPConnection function.\n");
+		return false;
+	}
+#endif
 
 	if (!g_pGameConf->GetMemSig("CBaseClient__SetSteamID", (void **)(&g_pSetSteamIDFunc)) || !g_pSetSteamIDFunc)
 	{
