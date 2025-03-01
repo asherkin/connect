@@ -90,6 +90,7 @@ jobs:
               cd "$3"
               git remote set-url origin "$1"
               git fetch --depth 1 origin "$2"
+              git submodule deinit --all --force
               git checkout --force --recurse-submodules FETCH_HEAD
               git submodule init
               git submodule update --depth 1
