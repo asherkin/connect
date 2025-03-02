@@ -51,6 +51,12 @@ public:
 	virtual void SDK_OnUnload();
 
 	/**
+	 * @brief This is called once all known extensions have been loaded.
+	 * Note: It is is a good idea to add natives here, if any are provided.
+	 */
+	virtual void SDK_OnAllLoaded();
+
+	/**
 	 * @brief Called when the pause state is changed.
 	 */
 	//virtual void SDK_OnPauseChange(bool paused);
@@ -99,6 +105,11 @@ public:
 public: //IConCommandBaseAccessor
 	bool RegisterConCommandBase(ConCommandBase *pCommand);
 };
+
+#define DETOUR_MEMBER_MCALL_CALLBACK(name, classptr) \
+	((name##Class *)classptr->*(&name##Class::name))
+#define DETOUR_MEMBER_MCALL_ORIGINAL(name, classptr) \
+	((name##Class *)classptr->*(name##Class::name##_Actual))
 
 #define DETOUR_DECL_MEMBER9(name, ret, p1type, p1name, p2type, p2name, p3type, p3name, p4type, p4name, p5type, p5name, p6type, p6name, p7type, p7name, p8type, p8name, p9type, p9name) \
 class name##Class \
