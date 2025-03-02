@@ -14,16 +14,18 @@
 		{
 			"ISteamGameServer__BeginAuthSession"
 			{
-				"linux"         "29"
-				"linux64"       "29"
-				"windows"       "29"
+				"linux"         "26"
+				"linux64"       "26"
+				"windows"       "26"
+				"windows64"     "26"
 			}
 
 			"ISteamGameServer__EndAuthSession"
 			{
-				"linux"         "30"
-				"linux64"       "30"
-				"windows"       "30"
+				"linux"         "27"
+				"linux64"       "27"
+				"windows"       "27"
+				"windows64"     "27"
 			}
 		}
 
