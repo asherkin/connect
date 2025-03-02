@@ -48,7 +48,7 @@ jobs:
             libc6-dev libc6-dev-i386 linux-libc-dev \
             linux-libc-dev:i386 lib32z1-dev ${{ matrix.cc }}
     
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Setup Python 3.9
         with:
           python-version: 3.9
