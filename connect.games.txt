@@ -86,6 +86,18 @@
 				"library"       "engine"
 				"windows"       "\xE8\x2A\x2A\x2A\x2A\x83\x78\x04\x00\x74\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x48\x04\x8B\x01\x8B\x40\x2C\xFF\xD0\x84\xC0\x74\x2A\x56"
 			}
+
+			"NET_SendPacket"
+			{
+				"library"		"engine"
+				"linux"			"@_Z14NET_SendPacketP11INetChanneliRK8netadr_sPKhiP8bf_writeb"
+			}
+
+			"NET_CheckCleanupFakeIPConnection"
+			{
+				"library"		"engine"
+				"linux"			"@_Z32NET_CheckCleanupFakeIPConnectioniRK8netadr_s"
+			}
 		}
 	}
 
@@ -150,6 +162,18 @@
 			{
 				"library"       "engine"
 				"windows"       "\x55\x8B\xEC\x83\xEC\x1C\x53\x57\x33\xD2"
+			}
+
+			"NET_SendPacket"
+			{
+				"library"		"engine"
+				"linux"			"@_Z14NET_SendPacketP11INetChanneliRK8netadr_sPKhiP8bf_writeb"
+			}
+
+			"NET_CheckCleanupFakeIPConnection"
+			{
+				"library"		"engine"
+				"linux"			"@_Z32NET_CheckCleanupFakeIPConnectioniRK8netadr_s"
 			}
 		}
 	}
