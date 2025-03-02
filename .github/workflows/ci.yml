@@ -84,6 +84,7 @@ jobs:
                   git clone "$1" --depth 1 --branch "$2" "$3"
               fi
               cd "$3"
+              git submodule deinit --all --force
               git remote set-url origin "$1"
               git fetch --depth 1 origin "$2"
               git checkout --force --recurse-submodules FETCH_HEAD
