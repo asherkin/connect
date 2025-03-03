@@ -99,13 +99,13 @@ CBaseServer *g_pBaseServer = NULL;
 
 typedef CSteam3Server *(*Steam3ServerFunc)();
 
-#ifndef WIN32
+#if !defined(WIN32) || defined(WIN64)
 typedef void (*RejectConnectionFunc)(CBaseServer *, const netadr_t &address, int iClientChallenge, const char *pchReason);
 #else
 typedef void (__fastcall *RejectConnectionFunc)(CBaseServer *, void *, const netadr_t &address, int iClientChallenge, const char *pchReason);
 #endif
 
-#ifndef WIN32
+#if !defined(WIN32) || defined(WIN64)
 typedef void (*SetSteamIDFunc)(CBaseClient *, const CSteamID &steamID);
 #else
 typedef void (__fastcall *SetSteamIDFunc)(CBaseClient *, void *, const CSteamID &steamID);
@@ -139,7 +139,7 @@ void RejectConnection(const netadr_t &address, int iClientChallenge, const char 
 	if (!g_pRejectConnectionFunc || !g_pBaseServer)
 		return;
 
-#ifndef WIN32
+#if !defined(WIN32) || defined(WIN64)
 	g_pRejectConnectionFunc(g_pBaseServer, address, iClientChallenge, pchReason);
 #else
 	g_pRejectConnectionFunc(g_pBaseServer, NULL, address, iClientChallenge, pchReason);
@@ -151,7 +151,7 @@ void SetSteamID(CBaseClient *pClient, const CSteamID &steamID)
 	if (!pClient || !g_pSetSteamIDFunc)
 		return;
 
-#ifndef WIN32
+#if !defined(WIN32) || defined(WIN64)
 	g_pSetSteamIDFunc(pClient, steamID);
 #else
 	g_pSetSteamIDFunc(pClient, NULL, steamID);
@@ -338,9 +338,9 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 
 	//META_CONPRINTF("CheckMasterServerRequestRestart: %p\n", address);
 	address = (void *)((intptr_t)address + steam3ServerFuncOffset);
-	intptr_t offset = (intptr_t)(*(void **)address); // Get offset
+	int32_t offset = (*(int32_t *)address); // Get offset (yes, int32 even on 64-bit)
 
-	g_pSteam3ServerFunc = (Steam3ServerFunc)((intptr_t)address + offset + sizeof(intptr_t));
+	g_pSteam3ServerFunc = (Steam3ServerFunc)((intptr_t)address + offset + sizeof(int32_t));
 	//META_CONPRINTF("Steam3Server: %p\n", g_pSteam3ServerFunc);
 #endif
 
