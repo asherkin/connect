@@ -108,6 +108,18 @@
 				"windows"       "\x55\x8B\xEC\x83\xEC\x1C\x53\x57\x33\xD2"
 				"windows64"     "\x4C\x8B\xDC\x49\x89\x5B\x2A\x49\x89\x6B\x2A\x56\x57\x41\x54\x41\x56\x41\x57\x48\x83\xEC\x60\x48\x8B\x05\x2A\x2A\x2A\x2A\x48\x8D\x1D"
 			}
+
+			"NET_SendPacket"
+			{
+				"library"		"engine"
+				"linux"			"@_Z14NET_SendPacketP11INetChanneliRK8netadr_sPKhiP8bf_writeb"
+			}
+
+			"NET_CheckCleanupFakeIPConnection"
+			{
+				"library"		"engine"
+				"linux"			"@_Z32NET_CheckCleanupFakeIPConnectioniRK8netadr_s"
+			}
 		}
 	}
 }
