@@ -308,9 +308,7 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 
 	//META_CONPRINTF("CheckMasterServerRequestRestart: %p\n", address);
 	address = (void *)((intptr_t)address + steam3ServerFuncOffset);
-	int32_t offset = (*(int32_t *)address); // Get offset (yes, int32 even on 64-bit)
-
-	g_pSteam3ServerFunc = (Steam3ServerFunc)((intptr_t)address + offset + sizeof(int32_t));
+	g_pSteam3ServerFunc = (Steam3ServerFunc)((intptr_t)address + *((int32_t *)address) + sizeof(int32_t));
 	//META_CONPRINTF("Steam3Server: %p\n", g_pSteam3ServerFunc);
 #endif
 
