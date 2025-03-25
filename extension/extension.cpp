@@ -30,12 +30,9 @@ SMEXT_LINK(&g_connect);
 ConVar connectVersion("connect_version", SMEXT_CONF_VERSION, FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY, SMEXT_CONF_DESCRIPTION " Version");
 
 IGameConfig *g_pGameConf = NULL;
-
 IForward *g_pConnectForward = NULL;
 
 class IClient;
-class CBaseClient;
-
 class CBaseServer;
 
 typedef enum EAuthProtocol
@@ -81,11 +78,12 @@ const char *CSteamID::Render() const
 	return szSteamID;
 }
 
+class ISteamGameServer;
 class CSteam3Server
 {
 public:
 	void *m_pSteamClient;
-	void *m_pSteamGameServer;
+	ISteamGameServer* m_pSteamGameServer;
 	void *m_pSteamGameServerUtils;
 	void *m_pSteamGameServerNetworking;
 	void *m_pSteamGameServerStats;
@@ -95,25 +93,70 @@ public:
 	void *m_pSteamApps;
 } *g_pSteam3Server;
 
-CBaseServer *g_pBaseServer = NULL;
-
 typedef CSteam3Server *(*Steam3ServerFunc)();
 
-#if !defined(WIN32) || defined(WIN64)
-typedef void (*RejectConnectionFunc)(CBaseServer *, const netadr_t &address, int iClientChallenge, const char *pchReason);
-#else
-typedef void (__fastcall *RejectConnectionFunc)(CBaseServer *, void *, const netadr_t &address, int iClientChallenge, const char *pchReason);
-#endif
+class FEmptyClass {};
+template<typename classcall, typename RetType, typename... Args>
+union MFPHack {
+private:
+	void* addr;
+public:
+	MFPHack(void* addr)
+	{
+		this->addr = addr;
+	}
 
-#if !defined(WIN32) || defined(WIN64)
-typedef void (*SetSteamIDFunc)(CBaseClient *, const CSteamID &steamID);
-#else
-typedef void (__fastcall *SetSteamIDFunc)(CBaseClient *, void *, const CSteamID &steamID);
+	template<typename randomclass>
+	MFPHack(RetType (randomclass::*mfp)(Args...))
+	{
+		union
+		{
+			RetType (randomclass::*ptr)(Args...);
+			struct
+			{
+				void* addr;
+#ifdef __linux__
+				intptr_t adjustor;
 #endif
+			} details;
+		} u;
+		u.ptr = mfp;
+		this->addr = u.details.addr;
+	}
+
+	void SetAddress(void* addr)
+	{
+		this->addr = addr;
+	}
+
+	void* GetAddress()
+	{
+		return this->addr;
+	}
+
+	RetType operator()(classcall* ptrThis, Args... args)
+	{
+		union
+		{
+			RetType (FEmptyClass::*ptr)(Args...);
+			struct
+			{
+				void* addr;
+#ifdef __linux__
+				intptr_t adjustor;
+#endif
+			} details;
+		} u;
+
+		u.details.addr = addr;
+#ifdef __linux__
+		u.details.adjustor = 0;
+#endif
+		return (((FEmptyClass*)ptrThis)->*u.ptr)(args...);
+	}
+};
 
 CDetour* detourCBaseServer__ConnectClient = nullptr;
-CDetour* detourCBaseServer__RejectConnection = nullptr;
-
 bool g_bEndAuthSessionOnRejectConnection = false;
 bool g_bSuppressBeginAuthSession = false;
 CSteamID g_lastClientSteamID;
@@ -122,9 +165,10 @@ int g_lastcbAuthTicket;
 
 char passwordBuffer[255];
 
-Steam3ServerFunc g_pSteam3ServerFunc = NULL;
-RejectConnectionFunc g_pRejectConnectionFunc = NULL;
-SetSteamIDFunc g_pSetSteamIDFunc = NULL;
+Steam3ServerFunc g_pSteam3ServerFunc = nullptr;
+MFPHack<CBaseServer, void, const netadr_t &, int, const char *> g_pRejectConnectionFunc(nullptr);
+MFPHack<ISteamGameServer, EBeginAuthSessionResult, const void*, int, CSteamID> g_pBeginAuthSession(nullptr);
+MFPHack<ISteamGameServer, void, CSteamID> g_pEndAuthSession(nullptr);
 
 CSteam3Server *Steam3Server()
 {
@@ -134,38 +178,7 @@ CSteam3Server *Steam3Server()
 	return g_pSteam3ServerFunc();
 }
 
-void RejectConnection(const netadr_t &address, int iClientChallenge, const char *pchReason)
-{
-	if (!g_pRejectConnectionFunc || !g_pBaseServer)
-		return;
-
-#if !defined(WIN32) || defined(WIN64)
-	g_pRejectConnectionFunc(g_pBaseServer, address, iClientChallenge, pchReason);
-#else
-	g_pRejectConnectionFunc(g_pBaseServer, NULL, address, iClientChallenge, pchReason);
-#endif
-}
-
-void SetSteamID(CBaseClient *pClient, const CSteamID &steamID)
-{
-	if (!pClient || !g_pSetSteamIDFunc)
-		return;
-
-#if !defined(WIN32) || defined(WIN64)
-	g_pSetSteamIDFunc(pClient, steamID);
-#else
-	g_pSetSteamIDFunc(pClient, NULL, steamID);
-#endif
-}
-
-class VFuncEmptyClass{};
-
-int g_nBeginAuthSessionOffset = 0;
-int g_nEndAuthSessionOffset = 0;
-
 SH_DECL_MANUALHOOK3(MHook_BeginAuthSession, 0, 0, 0, EBeginAuthSessionResult, const void *, int, CSteamID);
-int g_nHookIdBeginAuthSession = -1;
-
 EBeginAuthSessionResult Hook_BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
 {
 	if (!g_bSuppressBeginAuthSession)
@@ -186,38 +199,6 @@ EBeginAuthSessionResult Hook_BeginAuthSession(const void *pAuthTicket, int cbAut
 	RETURN_META_VALUE(MRES_IGNORED, k_EBeginAuthSessionResultDuplicateRequest);
 }
 
-EBeginAuthSessionResult BeginAuthSession(const void *pAuthTicket, int cbAuthTicket, CSteamID steamID)
-{
-	if (g_nBeginAuthSessionOffset == 0)
-		return k_EBeginAuthSessionResultInvalidTicket;
-
-	void *func = (*(void ***)g_pSteam3Server->m_pSteamGameServer)[g_nBeginAuthSessionOffset];
-
-	union {
-		EBeginAuthSessionResult (VFuncEmptyClass::*mfpnew)(const void *, int, CSteamID);
-		mfpDetails mfp;
-	} u;
-	u.mfp.Init(func);
-
-	return (EBeginAuthSessionResult)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(pAuthTicket, cbAuthTicket, steamID);
-}
-
-void EndAuthSession(CSteamID steamID)
-{
-	if (g_nEndAuthSessionOffset == 0)
-		return;
-
-	void *func = (*(void ***)g_pSteam3Server->m_pSteamGameServer)[g_nEndAuthSessionOffset];
-
-	union {
-		void (VFuncEmptyClass::*mfpnew)(CSteamID);
-		mfpDetails mfp;
-	} u;
-	u.mfp.Init(func);
-
-	return (void)(reinterpret_cast<VFuncEmptyClass*>(g_pSteam3Server->m_pSteamGameServer)->*u.mfpnew)(steamID);
-}
-
 DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, int, nProtocol, int, iChallenge, int, iClientChallenge, int, nAuthProtocol, const char *, pchName, const char *, pchPassword, const char *, pCookie, int, cbCookie)
 {
 	if (nAuthProtocol != k_EAuthProtocolSteam)
@@ -226,13 +207,13 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 		return DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
 	}
 
-	g_pBaseServer = (CBaseServer *)this;
-
 	if (pCookie == NULL || (size_t)cbCookie < sizeof(uint64))
 	{
-		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectInvalidSteamCertLen");
+		g_pRejectConnectionFunc((CBaseServer*)this, address, iClientChallenge, "#GameUI_ServerRejectInvalidSteamCertLen");
 		return NULL;
 	}
+
+	auto steamGameServer = Steam3Server()->m_pSteamGameServer;
 
 	char ipString[30];
 	V_snprintf(ipString, sizeof(ipString), "%u.%u.%u.%u", address.ip[0], address.ip[1], address.ip[2], address.ip[3]);
@@ -242,16 +223,15 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 	void *pvTicket = (void *)((intptr_t)pCookie + sizeof(uint64));
 	int cbTicket = cbCookie - sizeof(uint64);
 
-	g_bEndAuthSessionOnRejectConnection = true;
 	g_lastClientSteamID = CSteamID(ullSteamID);
 	g_lastcbAuthTicket = cbTicket;
 	g_lastAuthTicket = pvTicket;
 
 	// Validate steam ticket
-	EBeginAuthSessionResult result = BeginAuthSession(pvTicket, cbTicket, g_lastClientSteamID);
+	EBeginAuthSessionResult result = g_pBeginAuthSession(steamGameServer, pvTicket, cbTicket, g_lastClientSteamID);
 	if (result != k_EBeginAuthSessionResultOK)
 	{
-		RejectConnection(address, iClientChallenge, "#GameUI_ServerRejectSteam");
+		g_pRejectConnectionFunc((CBaseServer*)this, address, iClientChallenge, "#GameUI_ServerRejectSteam");
 		return NULL;
 	}
 
@@ -268,7 +248,8 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 
 	if (retVal == 0)
 	{
-		RejectConnection(address, iClientChallenge, rejectReason);
+		g_pEndAuthSession(steamGameServer, g_lastClientSteamID);
+		g_pRejectConnectionFunc((CBaseServer*)this, address, iClientChallenge, rejectReason);
 		return NULL;
 	}
 
@@ -277,18 +258,11 @@ DETOUR_DECL_MEMBER9(CBaseServer__ConnectClient, IClient*, netadr_t&, address, in
 	g_bSuppressBeginAuthSession = true;
 	auto client = DETOUR_MEMBER_CALL(CBaseServer__ConnectClient)(address, nProtocol, iChallenge, iClientChallenge, nAuthProtocol, pchName, pchPassword, pCookie, cbCookie);
 	g_bSuppressBeginAuthSession = false;
-	return client;
-}
-
-DETOUR_DECL_MEMBER3(CBaseServer__RejectConnection, void, netadr_t &, address, int, iClientChallenge, const char *, pchReason)
-{
-	if (g_bEndAuthSessionOnRejectConnection)
+	if (client == nullptr)
 	{
-		EndAuthSession(g_lastClientSteamID);
-		g_bEndAuthSessionOnRejectConnection = false;
+		g_pEndAuthSession(steamGameServer, g_lastClientSteamID);
 	}
-
-	return DETOUR_MEMBER_CALL(CBaseServer__RejectConnection)(address, iClientChallenge, pchReason);
+	return client;
 }
 
 bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
@@ -303,17 +277,13 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 
-	if (!g_pGameConf->GetMemSig("CBaseServer__RejectConnection", (void **)(&g_pRejectConnectionFunc)) || !g_pRejectConnectionFunc)
+	void* addr;
+	if (!g_pGameConf->GetMemSig("CBaseServer__RejectConnection", &addr) || addr == nullptr)
 	{
 		snprintf(error, maxlen, "Failed to find CBaseServer__RejectConnection function.\n");
 		return false;
 	}
-
-	if (!g_pGameConf->GetMemSig("CBaseClient__SetSteamID", (void **)(&g_pSetSteamIDFunc)) || !g_pSetSteamIDFunc)
-	{
-		snprintf(error, maxlen, "Failed to find CBaseClient__SetSteamID function.\n");
-		return false;
-	}
+	g_pRejectConnectionFunc.SetAddress(addr);
 
 #ifndef WIN32
 	if (!g_pGameConf->GetMemSig("Steam3Server", (void **)(&g_pSteam3ServerFunc)) || !g_pSteam3ServerFunc)
@@ -364,22 +334,28 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	META_CONPRINTF("ISteamNetworking: %p\n", g_pSteam3Server->m_pSteamGameServerNetworking);
 	META_CONPRINTF("ISteamGameServerStats: %p\n", g_pSteam3Server->m_pSteamGameServerStats);
 	*/
+	void** vtable = *((void***)g_pSteam3Server->m_pSteamGameServer);
 
-	if (!g_pGameConf->GetOffset("ISteamGameServer__BeginAuthSession", &g_nBeginAuthSessionOffset) || g_nBeginAuthSessionOffset == 0)
+	int offset = 0;
+	if (!g_pGameConf->GetOffset("ISteamGameServer__BeginAuthSession", &offset) || offset == 0)
 	{
 		snprintf(error, maxlen, "Failed to find ISteamGameServer__BeginAuthSession offset.\n");
 		return false;
 	}
-	SH_MANUALHOOK_RECONFIGURE(MHook_BeginAuthSession, g_nBeginAuthSessionOffset, 0, 0);
+	g_pBeginAuthSession.SetAddress(vtable[offset]);
+
+	offset = 0;
+	if (!g_pGameConf->GetOffset("ISteamGameServer__EndAuthSession", &offset) || offset == 0)
+	{
+		snprintf(error, maxlen, "Failed to find ISteamGameServer__EndAuthSession offset.\n");
+		return false;
+	}
+	g_pEndAuthSession.SetAddress(vtable[offset]);
+
+	SH_MANUALHOOK_RECONFIGURE(MHook_BeginAuthSession, offset, 0, 0);
 	if (SH_ADD_MANUALHOOK(MHook_BeginAuthSession, g_pSteam3Server->m_pSteamGameServer, SH_STATIC(Hook_BeginAuthSession), true) == 0)
 	{
 		snprintf(error, maxlen, "Failed to setup ISteamGameServer__BeginAuthSession hook.\n");
-		return false;
-	}
-
-	if (!g_pGameConf->GetOffset("ISteamGameServer__EndAuthSession", &g_nEndAuthSessionOffset) || g_nEndAuthSessionOffset == 0)
-	{
-		snprintf(error, maxlen, "Failed to find ISteamGameServer__EndAuthSession offset.\n");
 		return false;
 	}
 
@@ -392,14 +368,6 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 	detourCBaseServer__ConnectClient->EnableDetour();
-
-	detourCBaseServer__RejectConnection = DETOUR_CREATE_MEMBER(CBaseServer__RejectConnection, "CBaseServer__RejectConnection");
-	if (detourCBaseServer__RejectConnection == nullptr)
-	{
-		snprintf(error, maxlen, "Failed to create CBaseServer__RejectConnection detour.\n");
-		return false;
-	}
-	detourCBaseServer__RejectConnection->EnableDetour();
 
 	g_pConnectForward = g_pForwards->CreateForward("OnClientPreConnectEx", ET_LowEvent, 5, NULL, Param_String, Param_String, Param_String, Param_String, Param_String);
 
@@ -428,12 +396,6 @@ bool Connect::SDK_OnMetamodUnload(char *error, size_t maxlen)
 	{
 		detourCBaseServer__ConnectClient->DisableDetour();
 		delete detourCBaseServer__ConnectClient;
-	}
-
-	if (detourCBaseServer__RejectConnection)
-	{
-		detourCBaseServer__RejectConnection->DisableDetour();
-		delete detourCBaseServer__RejectConnection;
 	}
 
 	return true;
