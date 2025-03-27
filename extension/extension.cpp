@@ -157,7 +157,6 @@ public:
 };
 
 CDetour* detourCBaseServer__ConnectClient = nullptr;
-bool g_bEndAuthSessionOnRejectConnection = false;
 bool g_bSuppressBeginAuthSession = false;
 CSteamID g_lastClientSteamID;
 const void* g_lastAuthTicket;
