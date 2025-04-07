@@ -93,15 +93,6 @@
 				"windows64"     "\x48\x89\x5C\x24\x2A\x48\x89\x6C\x24\x2A\x48\x89\x74\x24\x2A\x57\x48\x81\xEC\x50\x05\x00\x00"
 			}
 
-			"CBaseClient__SetSteamID"
-			{
-				"library"       "engine"
-				"linux"         "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
-				"linux64"       "@_ZN11CBaseClient10SetSteamIDERK8CSteamID"
-				"windows"       "\x55\x8B\xEC\x56\x8B\xF1\x57\x8B\x7D\x08\x8D\x4E\x04"
-				"windows64"     "\x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x20\x48\x8B\x02\x48\x8B\xD9\x48\x89\x41"
-			}
-
 			"CBaseServer__CheckMasterServerRequestRestart"
 			{
 				"library"       "engine"
