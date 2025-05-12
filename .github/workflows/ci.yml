@@ -11,11 +11,11 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2022]
+        os: [ubuntu-22.04, windows-2022]
         include:
-          - os: ubuntu-20.04
-            cc: clang-10
-            cxx: clang++-10
+          - os: ubuntu-22.04
+            cc: clang-11
+            cxx: clang++-11
           - os: windows-2022
             cc: msvc
       fail-fast: false
