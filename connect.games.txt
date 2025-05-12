@@ -14,44 +14,6 @@
 		{
 			"ISteamGameServer__BeginAuthSession"
 			{
-				"linux"         "29"
-				"linux64"       "29"
-				"windows"       "29"
-			}
-
-			"ISteamGameServer__EndAuthSession"
-			{
-				"linux"         "30"
-				"linux64"       "30"
-				"windows"       "30"
-			}
-		}
-
-		"Signatures"
-		{
-			"Steam3Server"
-			{
-				"library"       "engine"
-				"linux"         "@_Z12Steam3Serverv"
-				"linux64"       "@_Z12Steam3Serverv"
-			}
-		}
-	}
-
-	"#default"
-	{
-		"#supported"
-		{
-			"engine"    "dods"
-			"engine"    "css"
-			"engine"    "hl2dm"
-			"engine"    "tf2"
-		}
-
-		"Offsets"
-		{
-			"ISteamGameServer__BeginAuthSession"
-			{
 				"linux"         "26"
 				"linux64"       "26"
 				"windows"       "26"
@@ -75,6 +37,13 @@
 
 		"Signatures"
 		{
+			"Steam3Server"
+			{
+				"library"       "engine"
+				"linux"         "@_Z12Steam3Serverv"
+				"linux64"       "@_Z12Steam3Serverv"
+			}
+
 			"CBaseServer__ConnectClient"
 			{
 				"library"       "engine"
