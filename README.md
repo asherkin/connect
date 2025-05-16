@@ -28,3 +28,6 @@ public bool OnClientPreConnectEx
 `return false;` to disallow the client from joining, and change `rejectReason` to what you want them to be shown when denied.
 
 Note that this function is called before the client has a client index on the server.
+
+
+# [Builds](https://builds.limetech.io/?project=connect)
