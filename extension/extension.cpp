@@ -327,7 +327,6 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	/*
 	META_CONPRINTF("ISteamGameServer: %p\n", g_pSteam3Server->m_pSteamGameServer);
 	META_CONPRINTF("ISteamUtils: %p\n", g_pSteam3Server->m_pSteamGameServerUtils);
-	META_CONPRINTF("ISteamMasterServerUpdater: %p\n", g_pSteam3Server->m_pSteamMasterServerUpdater);
 	META_CONPRINTF("ISteamNetworking: %p\n", g_pSteam3Server->m_pSteamGameServerNetworking);
 	META_CONPRINTF("ISteamGameServerStats: %p\n", g_pSteam3Server->m_pSteamGameServerStats);
 	*/
@@ -341,6 +340,13 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	}
 	g_pBeginAuthSession.SetAddress(vtable[offset]);
 
+	SH_MANUALHOOK_RECONFIGURE(MHook_BeginAuthSession, offset, 0, 0);
+	if (SH_ADD_MANUALHOOK(MHook_BeginAuthSession, g_pSteam3Server->m_pSteamGameServer, SH_STATIC(Hook_BeginAuthSession), true) == 0)
+	{
+		snprintf(error, maxlen, "Failed to setup ISteamGameServer__BeginAuthSession hook.\n");
+		return false;
+	}
+
 	offset = 0;
 	if (!g_pGameConf->GetOffset("ISteamGameServer__EndAuthSession", &offset) || offset == 0)
 	{
@@ -348,13 +354,6 @@ bool Connect::SDK_OnLoad(char *error, size_t maxlen, bool late)
 		return false;
 	}
 	g_pEndAuthSession.SetAddress(vtable[offset]);
-
-	SH_MANUALHOOK_RECONFIGURE(MHook_BeginAuthSession, offset, 0, 0);
-	if (SH_ADD_MANUALHOOK(MHook_BeginAuthSession, g_pSteam3Server->m_pSteamGameServer, SH_STATIC(Hook_BeginAuthSession), true) == 0)
-	{
-		snprintf(error, maxlen, "Failed to setup ISteamGameServer__BeginAuthSession hook.\n");
-		return false;
-	}
 
 	CDetourManager::Init(g_pSM->GetScriptingEngine(), g_pGameConf);
 
