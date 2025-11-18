@@ -104,12 +104,6 @@ jobs:
           cd "${{ env.CACHE_PATH }}"
           python -m pip install ./ambuild
 
-      - name: Select clang compiler
-        if: startsWith(runner.os, 'Linux')
-        run: |
-          echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
-          echo "CXX=${{ matrix.cxx }}" >> $GITHUB_ENV
-
       - name: Build
         shell: bash
         working-directory: extension
