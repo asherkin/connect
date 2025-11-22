@@ -20,7 +20,7 @@ parser.options.add_argument('--enable-auto-versioning', action='store_false', de
                        default=True, help='Enables the auto versioning script')
 parser.options.add_argument('-s', '--sdks', default='all', dest='sdks',
                        help='Build against specified SDKs; valid args are "all", "present", or '
-                            'space-delimited list of engine names (default: %default)')
+                            'space-delimited list of engine names (default: %(default)s)')
 parser.options.add_argument('--targets', type=str, dest='targets', default=None,
 		                      help="Override the target architecture (use commas to separate multiple targets).")
 parser.Configure()

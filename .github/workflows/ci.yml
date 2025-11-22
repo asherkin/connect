@@ -11,9 +11,10 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022]
+        python-version: ['3.14']
+        os: [ubuntu-latest, windows-2022]
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             cc: clang-11
             cxx: clang++-11
           - os: windows-2022
@@ -37,26 +38,13 @@ jobs:
           SDKS_VAR="${{env.SDKS}}"
           # This will be used in our cache key
           echo "SDKS_KEY=${SDKS_VAR//[[:blank:]]/}" >> $GITHUB_ENV
-
-      - name: Linux dependencies
-        if: startsWith(runner.os, 'Linux')
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            gcc-multilib g++-multilib libstdc++6 lib32stdc++6 \
-            libc6-dev libc6-dev-i386 linux-libc-dev \
-            linux-libc-dev:i386 lib32z1-dev ${{ matrix.cc }}
     
       - uses: actions/setup-python@v6
-        name: Setup Python 3.9
+        if: startsWith(matrix.os, 'windows-')
+        name: Setup Python ${{ matrix.python-version }}
         with:
-          python-version: 3.9
+          python-version: ${{ matrix.python-version }}
       
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          
       - uses: actions/checkout@v4
         name: Repository checkout
         with:
@@ -105,31 +93,38 @@ jobs:
           # But maybe others aren't (also probably unnecessary because git actions but paranoia)
           git config --global advice.detachedHead true
 
-      - name: Setup AMBuild
-        shell: bash
-        run: |
-          cd "${{ env.CACHE_PATH }}"
-          python -m pip install ./ambuild
-
-      - name: Select clang compiler
-        if: startsWith(runner.os, 'Linux')
-        run: |
-          echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
-          echo "CXX=${{ matrix.cxx }}" >> $GITHUB_ENV
-          ${{ matrix.cc }} --version
-          ${{ matrix.cxx }} --version
-
       - name: Build
         shell: bash
         working-directory: extension
         run: |
-          mkdir build
-          cd build
-          python ../configure.py --enable-auto-versioning --enable-optimize --sdks="${{ env.SDKS }}" --mms-path="${{ env.CACHE_PATH }}/metamod-source" --hl2sdk-root="${{ env.CACHE_PATH }}" --sm-path="${{ env.CACHE_PATH }}/sourcemod"
-          ambuild
+          export PLATFORM="${{ runner.os }}"
 
-          PLATFORM="${{ runner.os }}"
-          FILENAME="$(cat ./includes/filename_versioning.txt)"
+          if [[ $PLATFORM == Linux* ]]; then
+            # docker instead of podman because:
+            # - we don't need a job to `sudo apt install podman`
+            # - `sudo apt install -y python3-pip` didn't work inside podman for me?
+            docker run \
+              -e PLATFORM="$PLATFORM" \
+              -e PROJECT=${{ env.PROJECT }} \
+              -e SDKS="${{ env.SDKS }}" \
+              -e MMSOURCE_VERSION=${{ env.MMSOURCE_VERSION }} \
+              -e SOURCEMOD_VERSION=${{ env.MMSOURCE_SOURCEMOD_VERSION }} \
+              -e CACHE_PATH=${{ env.CACHE_PATH }} \
+              -e SDKS_KEY=${{ env.SDKS_KEY }} \
+              -e CC=${{ matrix.cc }} \
+              -e CXX=${{ matrix.cxx }} \
+              --mount type=bind,source=${{ env.CACHE_PATH }},target=${{ env.CACHE_PATH }} \
+              --mount type=bind,source=$PWD,target=$PWD \
+              "registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest" \
+              "$PWD/.github/workflows/build.sh"
+
+            # need to fix the owner because docker root-ed stuff?
+            sudo chown -R $USER .
+          else
+            bash ./.github/workflows/build.sh
+          fi
+
+          FILENAME="$(cat build/includes/filename_versioning.txt)"
           ZIP_FILENAME="${{ env.PROJECT }}-${FILENAME}-${PLATFORM,}.zip"
 
           echo "ZIP_FILENAME=${ZIP_FILENAME}" >> $GITHUB_ENV
