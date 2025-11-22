@@ -12,11 +12,11 @@ if [[ $PLATFORM == Linux* ]]; then
 
 	# buildbot/generate_header.py is ran by ambuild and we want git to not fail due to user-perms (because docker)
 	git config --global --add safe.directory $PWD
-
-	pushd "$CACHE_PATH"
-	python -m pip install ./ambuild
-	popd
+else
+	python -m pip install --upgrade pip setuptools wheel
 fi
+
+python -m pip install $CACHE_PATH/ambuild
 
 mkdir build
 cd build
