@@ -111,7 +111,7 @@ jobs:
         run: |
           PLATFORM="${{ runner.os }}"
 
-          if [[ PLATFORM == Linux* ]]; then
+          if [[ $PLATFORM == Linux* ]]; then
             env > env.txt
             # docker instead of podman because:
             # - we don't need a job to `sudo apt install podman`
