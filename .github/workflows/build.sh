@@ -2,7 +2,7 @@
 
 cd "$(dirname $0)/../.."
 
-if [[ $OS == Linux* ]]; then
+if [[ $PLATFORM == Linux* ]]; then
 	$CC --version
 	$CXX --version
 
