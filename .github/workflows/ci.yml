@@ -112,16 +112,12 @@ jobs:
           PLATFORM="${{ runner.os }}"
 
           if [[ PLATFORM == Linux* ]]; then
+            env > env.txt
             # docker instead of podman because:
             # - we don't need a job to `sudo apt install podman`
             # - `sudo apt install -y python3-pip` didn't work inside podman for me?
             docker run \
-              -e PROJECT=${{ env.PROJECT }} \
-              -e SDKS="${{ env.SDKS }}" \
-              -e MMSOURCE_VERSION=${{ env.MMSOURCE_VERSION }} \
-              -e SOURCEMOD_VERSION=${{ env.MMSOURCE_SOURCEMOD_VERSION }} \
-              -e CACHE_PATH=${{ env.CACHE_PATH }} \
-              -e SDKS_KEY=${{ env.SDKS_KEY }} \
+              --env-file env.txt \
               -e CC=${{ matrix.cc }} \
               -e CXX=${{ matrix.cxx }} \
               --mount type=bind,source=${{ env.CACHE_PATH }},target=${{ env.CACHE_PATH }} \
