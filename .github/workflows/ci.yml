@@ -109,27 +109,32 @@ jobs:
         shell: bash
         working-directory: extension
         run: |
-          # docker instead of podman because:
-          # - we don't need a job to `sudo apt install podman`
-          # - `sudo apt install -y python3-pip` didn't work inside podman for me?
-          docker run \
-            -e PROJECT=${{ env.PROJECT }} \
-            -e SDKS="${{ env.SDKS }}" \
-            -e MMSOURCE_VERSION=${{ env.MMSOURCE_VERSION }} \
-            -e SOURCEMOD_VERSION=${{ env.MMSOURCE_SOURCEMOD_VERSION }} \
-            -e CACHE_PATH=${{ env.CACHE_PATH }} \
-            -e SDKS_KEY=${{ env.SDKS_KEY }} \
-            -e CC=${{ matrix.cc }} \
-            -e CXX=${{ matrix.cxx }} \
-            --mount type=bind,source=${{ env.CACHE_PATH }},target=${{ env.CACHE_PATH }} \
-            --mount type=bind,source=$PWD,target=$PWD \
-            "registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest" \
-            "$PWD/build.sh"
-
-          # need to fix the owner because docker root-ed stuff?
-          sudo chown -R $USER .
-
           PLATFORM="${{ runner.os }}"
+
+          if [[ PLATFORM == Linux* ]]; then
+            # docker instead of podman because:
+            # - we don't need a job to `sudo apt install podman`
+            # - `sudo apt install -y python3-pip` didn't work inside podman for me?
+            docker run \
+              -e PROJECT=${{ env.PROJECT }} \
+              -e SDKS="${{ env.SDKS }}" \
+              -e MMSOURCE_VERSION=${{ env.MMSOURCE_VERSION }} \
+              -e SOURCEMOD_VERSION=${{ env.MMSOURCE_SOURCEMOD_VERSION }} \
+              -e CACHE_PATH=${{ env.CACHE_PATH }} \
+              -e SDKS_KEY=${{ env.SDKS_KEY }} \
+              -e CC=${{ matrix.cc }} \
+              -e CXX=${{ matrix.cxx }} \
+              --mount type=bind,source=${{ env.CACHE_PATH }},target=${{ env.CACHE_PATH }} \
+              --mount type=bind,source=$PWD,target=$PWD \
+              "registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest" \
+              "$PWD/.github/workflows/build.sh"
+
+            # need to fix the owner because docker root-ed stuff?
+            sudo chown -R $USER .
+          else
+            bash ./.github/workflows/build.sh
+          fi
+
           FILENAME="$(cat build/includes/filename_versioning.txt)"
           ZIP_FILENAME="${{ env.PROJECT }}-${FILENAME}-${PLATFORM,}.zip"
 
