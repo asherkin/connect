@@ -109,7 +109,7 @@ jobs:
         shell: bash
         working-directory: extension
         run: |
-          PLATFORM="${{ runner.os }}"
+          export PLATFORM="${{ runner.os }}"
 
           if [[ $PLATFORM == Linux* ]]; then
             # docker instead of podman because:
