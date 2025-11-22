@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euxo pipefail
+
 cd "$(dirname $0)/../.."
 
 if [[ $PLATFORM == Linux* ]]; then
