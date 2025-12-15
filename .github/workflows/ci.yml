@@ -160,7 +160,7 @@ jobs:
           echo "Upload successful!"
 
       - name: Upload a Build Artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           # Artifact name
           name: ${{ matrix.os }}_${{ matrix.cc }}_${{ env.ZIP_FILENAME }}
