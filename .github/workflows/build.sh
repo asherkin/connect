@@ -8,6 +8,7 @@ if [[ $PLATFORM == Linux* ]]; then
 	$CC --version
 	$CXX --version
 
+	apt update
 	apt install -y python3-pip
 
 	# buildbot/generate_header.py is ran by ambuild and we want git to not fail due to user-perms (because docker)
