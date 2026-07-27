@@ -39,7 +39,7 @@ jobs:
           # This will be used in our cache key
           echo "SDKS_KEY=${SDKS_VAR//[[:blank:]]/}" >> $GITHUB_ENV
     
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: startsWith(matrix.os, 'windows-')
         name: Setup Python ${{ matrix.python-version }}
         with:
